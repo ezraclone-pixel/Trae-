@@ -1,0 +1,113 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrderCategory {
+  WEBSITE
+  APP
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  CANCELED
+}
+
+enum WithdrawalStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+model User {
+  /// Telegram user id (as string to avoid JS BigInt JSON issues)
+  telegramId String @id
+
+  username  String?
+  firstName String?
+  lastName  String?
+  photoUrl  String?
+
+  points        Int @default(0)
+  reservedPoints Int @default(0)
+
+  referrerId String?
+  referrer   User?  @relation("Referrals", fields: [referrerId], references: [telegramId])
+  referrals  User[] @relation("Referrals")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  taskCompletions TaskCompletion[]
+  orders          Order[]
+  withdrawals     WithdrawalRequest[]
+  referralCredits ReferralCredit[] @relation("ReferrerCredits")
+}
+
+model TaskCompletion {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [telegramId], onDelete: Cascade)
+
+  /// e.g. daily_login, follow_channel, join_group, phrase
+  taskKey   String
+
+  /// Use a concrete periodKey for uniqueness:
+  /// - "once" for one-time tasks
+  /// - e.g. "2026-05-15@12" for daily-reset-at-12pm tasks
+  periodKey String
+
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@unique([userId, taskKey, periodKey])
+  @@index([taskKey, periodKey])
+}
+
+model ReferralCredit {
+  id        String   @id @default(cuid())
+  referrerId String
+  referrer   User     @relation("ReferrerCredits", fields: [referrerId], references: [telegramId], onDelete: Cascade)
+
+  referredId String  @unique
+  points     Int     @default(1500)
+  createdAt  DateTime @default(now())
+}
+
+model Order {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [telegramId], onDelete: Cascade)
+
+  category  OrderCategory
+  productKey String
+  priceMMK  Int?
+  status    OrderStatus @default(PENDING)
+
+  /// Points credited for this order (your rule: 10% of order value, rate 10pts=1MMK => points = MMK)
+  pointsEarned Int @default(0)
+
+  createdAt DateTime @default(now())
+}
+
+model WithdrawalRequest {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [telegramId], onDelete: Cascade)
+
+  points    Int
+  mmk       Int
+  status    WithdrawalStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  handledAt DateTime?
+  handledBy String?
+  note      String?
+
+  @@index([status, createdAt])
+}
