@@ -19,16 +19,14 @@ export function verifyTelegramInitData(initData: string, botToken: string) {
   if (!initData) return { ok: false as const, error: "Missing initData" };
 
   try {
-    // 🚀 Vercel Encoding ပြဿနာကို ကျော်လွှားရန် ရိုးရိုး String Split နည်းလမ်းကို သုံးပါမယ်
     const pairs = initData.split("&");
     let telegramHash = "";
     const dataCheckPairs: string[] = [];
 
     for (const pair of pairs) {
       const [key, ...valueParts] = pair.split("=");
-      const value = valueParts.join("="); // value ထဲမှာ = ပြန်ပါလာခဲ့ရင် ညှိရန်
+      const value = valueParts.join("="); 
       
-      // %20 သို့မဟုတ် + တွေကို မူရင်း Telegram ပုံစံအတိုင်း Decode ပြန်လုပ်မယ်
       const decodedKey = decodeURIComponent(key);
       const decodedValue = decodeURIComponent(value);
 
@@ -41,11 +39,9 @@ export function verifyTelegramInitData(initData: string, botToken: string) {
 
     if (!telegramHash) return { ok: false as const, error: "Missing hash" };
 
-    // Telegram စည်းမျဉ်းအတိုင်း Key များကို အက္ခရာစဉ်အလိုက် စီမယ်
     dataCheckPairs.sort();
     const dataCheckString = dataCheckPairs.join("\n");
 
-    // WebAppData ကို ခံပြီး HMAC-SHA256 ဆောက်ခြင်း
     const secretKey = crypto
       .createHmac("sha256", "WebAppData")
       .update(botToken)
@@ -56,19 +52,20 @@ export function verifyTelegramInitData(initData: string, botToken: string) {
       .update(dataCheckString)
       .digest("hex");
 
-    // Timing attack ကာကွယ်ပြီး တိုက်စစ်ခြင်း
     const ok = timingSafeEqualHex(calculatedHash, telegramHash);
     if (!ok) return { ok: false as const, error: "Invalid signature" };
 
-    // ဒေတာများကို သက်ဆိုင်ရာ Object အဖြစ် ပြန်ပြောင်းခြင်း
+    // 🚀 [အဓိကပြင်ဆင်ချက်] JSON Value ထဲက '=' သင်္ကေတတွေ အလွဲမဝင်အောင် စနစ်တကျ ခွဲထုတ်ခြင်း
     const init: TelegramInitData = {};
     for (const pair of dataCheckPairs) {
-      const [k, v] = pair.split("=");
+      const [k, ...vParts] = pair.split("="); // 👈 ပထမ '=' တစ်ခုတည်းကိုပဲ ခွဲထုတ်ရန် ပြင်ဆင်ခြင်း
+      const v = vParts.join("=");
+      
       if (k === "user") {
         try {
-          init.user = JSON.parse(v);
-        } catch {
-          // ignore
+          init.user = JSON.parse(v); // ယခုဆိုလျှင် JSON တစ်ခုလုံး ကွက်တိ ပတ်စ် လုပ်နိုင်ပါပြီ
+        } catch (e) {
+          console.error("Failed to parse telegram user JSON:", e);
         }
       } else {
         (init as any)[k] = v;
@@ -127,4 +124,3 @@ export function getDailyPeriodKey12pmMyanmar(now = new Date()): string {
   }
   return `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}@12`;
     }
-      
