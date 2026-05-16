@@ -47,8 +47,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // 🚀 Telegram initData ကို နည်းလမ်းမျိုးစုံဖြင့် ရှာဖွေပေးမည့် Helper
-  const getTelegramInitData = useCallback(() => {
+  // 🚀 Telegram initData (Raw String သီးသန့်) ကို ရှာဖွေပေးမည့် Helper
+  const getRawTelegramInitData = useCallback(() => {
     if (typeof window === "undefined") return "";
     
     const tgWindow = window as any;
@@ -66,12 +66,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const refresh = useCallback(async () => {
     setError(null);
-    const token = getTelegramInitData();
+    const rawToken = getRawTelegramInitData();
     
+    // 🛠️ Header ထဲကို Bearer တပ်ပြီး ပို့မယ်
     const res = await fetch("/api/me", { 
       cache: "no-store",
       headers: { 
-        "Authorization": `Bearer ${token}`,
+        "Authorization": `Bearer ${rawToken}`,
         "Content-Type": "application/json"
       }
     });
@@ -84,16 +85,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     const data = await res.json();
     setMe(data);
-  }, [getTelegramInitData]);
+  }, [getRawTelegramInitData]);
 
   const loginIfNeeded = useCallback(async () => {
-    const token = getTelegramInitData();
+    const rawToken = getRawTelegramInitData();
     
-    // 1. အရင်ဆုံး profile ရှိလား စစ်မယ်
+    // 1. အရင်ဆုံး profile ရှိလား Bearer Header နဲ့ စစ်မယ်
     const res = await fetch("/api/me", { 
       cache: "no-store",
       headers: { 
-        "Authorization": `Bearer ${token}`,
+        "Authorization": `Bearer ${rawToken}`,
         "Content-Type": "application/json"
       }
     });
@@ -102,11 +103,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     console.log("Profile verification skipped or failed, upgrading to Telegram Authentication...");
 
-    // 2. /api/auth/telegram ဆီကို initData ပို့ပြီး စစ်ဆေးမှု ခံယူမယ်
+    // 2. /api/auth/telegram ဆီကို "Bearer " မပါတဲ့ rawToken သီးသန့်ကိုပဲ ပို့ပြီး စစ်ခိုင်းမယ် (၅၀၀ error မတက်အောင်)
     const authRes = await fetch("/api/auth/telegram", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ initData: token }),
+      body: JSON.stringify({ initData: rawToken }), 
     });
 
     if (!authRes.ok) {
@@ -116,13 +117,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     return true;
-  }, [getTelegramInitData]);
+  }, [getRawTelegramInitData]);
 
   useEffect(() => {
     let isMounted = true;
     (async () => {
       try {
-        // 🚀 Telegram Script တက်လာအောင် 500ms (တစ်ဝက်စက္ကန့်) ခဏ စောင့်ပေးမည့်စနစ်
         await new Promise((resolve) => setTimeout(resolve, 500));
 
         const tg = (window as any)?.Telegram?.WebApp;
@@ -150,11 +150,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const completeTask: Ctx["completeTask"] = useCallback(
     async (taskKey) => {
       setError(null);
-      const token = getTelegramInitData();
+      const rawToken = getRawTelegramInitData();
       const res = await fetch("/api/tasks/complete", {
         method: "POST",
         headers: { 
-          "Authorization": `Bearer ${token}`,
+          "Authorization": `Bearer ${rawToken}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({ taskKey }),
@@ -165,17 +165,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       await refresh();
     },
-    [refresh, getTelegramInitData],
+    [refresh, getRawTelegramInitData],
   );
 
   const createOrder: Ctx["createOrder"] = useCallback(
     async (productKey) => {
       setError(null);
-      const token = getTelegramInitData();
+      const rawToken = getRawTelegramInitData();
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { 
-          "Authorization": `Bearer ${token}`,
+          "Authorization": `Bearer ${rawToken}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({ category: "WEBSITE", productKey }),
@@ -186,17 +186,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       await refresh();
     },
-    [refresh, getTelegramInitData],
+    [refresh, getRawTelegramInitData],
   );
 
   const createWithdrawal: Ctx["createWithdrawal"] = useCallback(
     async (points) => {
       setError(null);
-      const token = getTelegramInitData();
+      const rawToken = getRawTelegramInitData();
       const res = await fetch("/api/withdrawals", {
         method: "POST",
         headers: { 
-          "Authorization": `Bearer ${token}`,
+          "Authorization": `Bearer ${rawToken}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({ points }),
@@ -207,7 +207,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       await refresh();
     },
-    [refresh, getTelegramInitData],
+    [refresh, getRawTelegramInitData],
   );
 
   return (
@@ -221,5 +221,5 @@ export function useApp() {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error("useApp must be used within AppProvider");
   return ctx;
-                                    }
-          
+  }
+      
