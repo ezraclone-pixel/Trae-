@@ -1,4 +1,4 @@
-model client {
+generator client {
   provider = "prisma-client-js"
 }
 
@@ -24,18 +24,7 @@ enum WithdrawalStatus {
   REJECTED
 }
 
-
-
-model TaskCompletion {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [telegramId], onDelete: Cascade)
-
-  /// e.g. daily_login, follow_channel, join_group, phrase
-  taskKey   String
-
-  /// Use a concrete periodKey for uniqueness:
-  /// - "once" for one-one-model User {
+model User {
   /// Telegram user id (as string to avoid JS BigInt JSON issues)
   telegramId String @id @map("telegramId")
 
@@ -46,7 +35,7 @@ model TaskCompletion {
   lastName  String? @map("last_name")
   photoUrl  String? @map("photo_url")
 
-  points        Int @default(0)
+  points         Int @default(0)
   reservedPoints Int @default(0) @map("reservedPoints")
 
   referrerId String? @map("referrerId")
@@ -65,7 +54,17 @@ model TaskCompletion {
   // Supabase ထဲက "User" ဆိုတဲ့ Table နာမည်ကြီးနဲ့ ကွက်တိ ကိုက်ညီစေရန်
   @@map("User")
 }
-timeks
+
+model TaskCompletion {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [telegramId], onDelete: Cascade)
+
+  /// e.g. daily_login, follow_channel, join_group, phrase
+  taskKey   String
+
+  /// Use a concrete periodKey for uniqueness:
+  /// - "once" for one-time tasks
   /// - e.g. "2026-05-15@12" for daily-reset-at-12pm tasks
   periodKey String
 
