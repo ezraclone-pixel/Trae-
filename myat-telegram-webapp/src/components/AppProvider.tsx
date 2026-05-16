@@ -47,21 +47,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // 🚀 Telegram window ထဲက raw initData ကို ဆွဲထုတ်မည့် Helper function
-  const getAuthHeaders = useCallback(() => {
-    const initData = typeof window !== "undefined" ? (window as any).Telegram?.WebApp?.initData || "" : "";
-    return {
-      "Authorization": `Bearer ${initData}`,
-      "Content-Type": "application/json"
-    };
+  // 🚀 Telegram initData ကို နည်းလမ်းမျိုးစုံဖြင့် အမိအရ ရှာဖွေပေးမည့် ပိုမိုစိတ်ချရသော စနစ်
+  const getTelegramInitData = useCallback(() => {
+    if (typeof window === "undefined") return "";
+    
+    const tgWindow = window as any;
+    // ၁။ Standard နည်းလမ်းအရ ယူမယ်
+    let initData = tgWindow.Telegram?.WebApp?.initData || "";
+    
+    // ၂။ အကယ်၍ ပထမနည်းလမ်းမှာ Blank ဖြစ်နေလျှင် URL Hash/Fragment ထဲကနေပါ ရှာပြီး ထပ်ဆွဲထုတ်မယ်
+    if (!initData && tgWindow.location?.hash) {
+      const hashParams = new URLSearchParams(tgWindow.location.hash.substring(1));
+      initData = hashParams.get("tgWebAppData") || "";
+    }
+    
+    return initData;
   }, []);
 
   const refresh = useCallback(async () => {
     setError(null);
+    const token = getTelegramInitData();
+    
     // 🛠️ Header စနစ်ဖြင့် Profile ကို လှမ်းတောင်းခြင်း
     const res = await fetch("/api/me", { 
       cache: "no-store",
-      headers: { "Authorization": getAuthHeaders().Authorization }
+      headers: { 
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json"
+      }
     });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
@@ -71,34 +84,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     const data = await res.json();
     setMe(data);
-  }, [getAuthHeaders]);
+  }, [getTelegramInitData]);
 
   const loginIfNeeded = useCallback(async () => {
-    // 1. အရင်ဆုံး profile ရှိလား စစ်မယ် (Header ပါဝင်ပြီးသား)
+    const token = getTelegramInitData();
+    
+    // 1. အရင်ဆုံး profile ရှိလား စစ်မယ်
     const res = await fetch("/api/me", { 
       cache: "no-store",
-      headers: { "Authorization": getAuthHeaders().Authorization }
+      headers: { 
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json"
+      }
     });
     
     // ✅ အောင်မြင်ရင် Profile ရှိပြီးသားမို့လို့ true ပြန်ပြီး Dashboard ဆီ တန်းသွားမယ်
     if (res.ok) return true; 
 
-    // 🚀 [ဇာတ်သိမ်းခန်း ပြင်ဆင်ချက်] if (res.status !== 401) စာကြောင်းကို ဖြုတ်လိုက်ပါပြီ။
-    // အကြောင်းအမျိုးမျိုးကြောင့် ဒေတာမရတာနဲ့ အောက်က Telegram Auth စနစ်ဆီ အတင်းမောင်းနှင်ခိုင်းပါမယ်။
     console.log("Profile verification skipped or failed, upgrading to Telegram Authentication...");
 
-    // 2. Telegram Web App ဟုတ်မဟုတ် စစ်ပြီး Auth လုပ်မယ်
-    const initData = (window as any)?.Telegram?.WebApp?.initData as string | undefined;
-    if (!initData) {
-      setError("Please open this app inside Telegram");
-      return false;
-    }
-
-    // 3. /api/auth/telegram ဆီကို initData ပို့ပြီး စစ်ဆေးမှု ခံယူမယ်
+    // 2. /api/auth/telegram ဆီကို initData ပို့ပြီး စစ်ဆေးမှု ခံယူမယ်
     const authRes = await fetch("/api/auth/telegram", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ initData }),
+      body: JSON.stringify({ initData: token }),
     });
 
     if (!authRes.ok) {
@@ -108,7 +117,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     return true; // Login အောင်မြင်သွားပြီ
-  }, [getAuthHeaders]);
+  }, [getTelegramInitData]);
 
   useEffect(() => {
     let isMounted = true;
@@ -137,9 +146,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const completeTask: Ctx["completeTask"] = useCallback(
     async (taskKey) => {
       setError(null);
+      const token = getTelegramInitData();
       const res = await fetch("/api/tasks/complete", {
         method: "POST",
-        headers: getAuthHeaders(),
+        headers: { 
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
         body: JSON.stringify({ taskKey }),
       });
       if (!res.ok) {
@@ -148,15 +161,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       await refresh();
     },
-    [refresh, getAuthHeaders],
+    [refresh, getTelegramInitData],
   );
 
   const createOrder: Ctx["createOrder"] = useCallback(
     async (productKey) => {
       setError(null);
+      const token = getTelegramInitData();
       const res = await fetch("/api/orders", {
         method: "POST",
-        headers: getAuthHeaders(),
+        headers: { 
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
         body: JSON.stringify({ category: "WEBSITE", productKey }),
       });
       if (!res.ok) {
@@ -165,15 +182,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       await refresh();
     },
-    [refresh, getAuthHeaders],
+    [refresh, getTelegramInitData],
   );
 
   const createWithdrawal: Ctx["createWithdrawal"] = useCallback(
     async (points) => {
       setError(null);
+      const token = getTelegramInitData();
       const res = await fetch("/api/withdrawals", {
         method: "POST",
-        headers: getAuthHeaders(),
+        headers: { 
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
         body: JSON.stringify({ points }),
       });
       if (!res.ok) {
@@ -182,7 +203,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       await refresh();
     },
-    [refresh, getAuthHeaders],
+    [refresh, getTelegramInitData],
   );
 
   return (
@@ -196,5 +217,5 @@ export function useApp() {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error("useApp must be used within AppProvider");
   return ctx;
-      }
-                                                      
+    }
+    
