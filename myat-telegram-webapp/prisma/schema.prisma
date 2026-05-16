@@ -25,49 +25,36 @@ enum WithdrawalStatus {
 }
 
 model User {
-  /// Telegram user id (as string to avoid JS BigInt JSON issues)
-  telegramId String @id @map("telegramId")
+  /// Telegram user id
+  telegramId String @id
 
   username  String?
-  
-  // 🚀 [အဓိကပြင်ဆင်ချက်] Supabase ထဲက Snake Case Column တွေနဲ့ ကွက်တိ ချိတ်ဆက်ပေးခြင်း
-  firstName String? @map("first_name")
-  lastName  String? @map("last_name")
-  photoUrl  String? @map("photo_url")
+  firstName String?  // Supabase ထဲက firstName နဲ့ ကွက်တိ ကိုက်ပါမည်
+  lastName  String?  // Supabase ထဲက lastName နဲ့ ကွက်တိ ကိုက်ပါမည်
+  photoUrl  String?  // Supabase ထဲက photoUrl နဲ့ ကွက်တိ ကိုက်ပါမည်
 
   points         Int @default(0)
-  reservedPoints Int @default(0) @map("reservedPoints")
+  reservedPoints Int @default(0)
 
-  referrerId String? @map("referrerId")
+  referrerId String?
   referrer   User?   @relation("Referrals", fields: [referrerId], references: [telegramId])
   referrals  User[]  @relation("Referrals")
 
-  // 🔄 Database ရဲ့ Table Column တွေနဲ့ သေချာကိုက်အောင် တိုက်ရိုက် Map လုပ်ခြင်း
-  createdAt DateTime @default(now()) @map("createdAt")
-  updatedAt DateTime @updatedAt @map("updatedAt")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   taskCompletions TaskCompletion[]
   orders          Order[]
   withdrawals     WithdrawalRequest[]
   referralCredits ReferralCredit[] @relation("ReferrerCredits")
-
-  // Supabase ထဲက "User" ဆိုတဲ့ Table နာမည်ကြီးနဲ့ ကွက်တိ ကိုက်ညီစေရန်
-  @@map("User")
 }
 
 model TaskCompletion {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [telegramId], onDelete: Cascade)
-
-  /// e.g. daily_login, follow_channel, join_group, phrase
   taskKey   String
-
-  /// Use a concrete periodKey for uniqueness:
-  /// - "once" for one-time tasks
-  /// - e.g. "2026-05-15@12" for daily-reset-at-12pm tasks
   periodKey String
-
   meta      Json?
   createdAt DateTime @default(now())
 
@@ -79,7 +66,6 @@ model ReferralCredit {
   id        String   @id @default(cuid())
   referrerId String
   referrer   User     @relation("ReferrerCredits", fields: [referrerId], references: [telegramId], onDelete: Cascade)
-
   referredId String  @unique
   points     Int     @default(1500)
   createdAt  DateTime @default(now())
@@ -89,15 +75,11 @@ model Order {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [telegramId], onDelete: Cascade)
-
   category  OrderCategory
   productKey String
   priceMMK  Int?
   status    OrderStatus @default(PENDING)
-
-  /// Points credited for this order (your rule: 10% of order value, rate 10pts=1MMK => points = MMK)
   pointsEarned Int @default(0)
-
   createdAt DateTime @default(now())
 }
 
@@ -105,11 +87,9 @@ model WithdrawalRequest {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [telegramId], onDelete: Cascade)
-
   points    Int
   mmk       Int
   status    WithdrawalStatus @default(PENDING)
-
   createdAt DateTime @default(now())
   handledAt DateTime?
   handledBy String?
