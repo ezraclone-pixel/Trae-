@@ -7,22 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum OrderCategory {
-  WEBSITE
-  APP
-}
-
-enum OrderStatus {
-  PENDING
-  CONFIRMED
-  CANCELED
-}
-
-enum WithdrawalStatus {
-  PENDING
-  ACCEPTED
-  REJECTED
-}
+// 💡 SQL ထဲက ပုံစံအတိုင်း ကိုက်ညီအောင် Next.js ဘက်မှာ Enums အစား String (သို့မဟုတ် Text) အဖြစ် ပြောင်းသုံးပါမယ်
 
 model User {
   /// Telegram user id
@@ -75,10 +60,13 @@ model Order {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [telegramId], onDelete: Cascade)
-  category  OrderCategory
+  
+  // 🚀 [ပြင်ဆင်ချက်] Enum နေရာမှာ String ပြောင်းပေးရပါမယ် (SQL Editor က TEXT နဲ့ ကိုက်အောင်လို့ပါ)
+  category  String
   productKey String
   priceMMK  Int?
-  status    OrderStatus @default(PENDING)
+  status    String @default("PENDING")
+  
   pointsEarned Int @default(0)
   createdAt DateTime @default(now())
 }
@@ -89,7 +77,10 @@ model WithdrawalRequest {
   user      User     @relation(fields: [userId], references: [telegramId], onDelete: Cascade)
   points    Int
   mmk       Int
-  status    WithdrawalStatus @default(PENDING)
+  
+  // 🚀 [ပြင်ဆင်ချက်] Enum နေရာမှာ String ပြောင်းပေးရပါမယ် (SQL Editor က TEXT နဲ့ ကိုက်အောင်လို့ပါ)
+  status    String @default("PENDING")
+  
   createdAt DateTime @default(now())
   handledAt DateTime?
   handledBy String?
