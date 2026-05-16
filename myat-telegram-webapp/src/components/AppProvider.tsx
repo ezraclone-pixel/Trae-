@@ -47,22 +47,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loginIfNeeded = useCallback(async () => {
-    // Try to load /api/me; if unauthorized and we are in Telegram -> call auth
-    const res = await fetch("/api/me", { cache: "no-store" });
-    if (res.ok) return;
-    if (res.status !== 401) return;
-
-    const initData = (window as any)?.Telegram?.WebApp?.initData as string | undefined;
-    if (!initData) return;
-
-    await fetch("/api/auth/telegram", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ initData }),
-    });
-  }, []);
-
   const refresh = useCallback(async () => {
     setError(null);
     const res = await fetch("/api/me", { cache: "no-store" });
@@ -72,23 +56,62 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setError(j?.error || "Cannot load profile");
       return;
     }
-    setMe(await res.json());
+    const data = await res.json();
+    setMe(data);
+  }, []);
+
+  const loginIfNeeded = useCallback(async () => {
+    // 1. အရင်ဆုံး profile ရှိလား စစ်မယ်
+    const res = await fetch("/api/me", { cache: "no-store" });
+    if (res.ok) return true; // Profile ရှိရင် ဘာမှလုပ်စရာမလို၊ ဆက်သွားမယ်
+    if (res.status !== 401) return false;
+
+    // 2. 401 ပြရင် Telegram Web App ဟုတ်မဟုတ် စစ်ပြီး Auth လုပ်မယ်
+    const initData = (window as any)?.Telegram?.WebApp?.initData as string | undefined;
+    if (!initData) {
+      setError("Please open this app inside Telegram");
+      return false;
+    }
+
+    // 3. Auth API ဆီ ပို့မယ်
+    const authRes = await fetch("/api/auth/telegram", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ initData }),
+    });
+
+    if (!authRes.ok) {
+      const j = await authRes.json().catch(() => ({}));
+      setError(j?.error || "Authentication failed");
+      return false;
+    }
+
+    return true; // Login အောင်မြင်သွားပြီ
   }, []);
 
   useEffect(() => {
+    let isMounted = true;
     (async () => {
       try {
         const tg = (window as any)?.Telegram?.WebApp;
         if (tg?.ready) tg.ready();
         if (tg?.expand) tg.expand();
-        await loginIfNeeded();
-        await refresh();
+        
+        // Login အရင်လုပ်မယ်၊ အောင်မြင်မှ Profile ကို Refresh လုပ်မယ်
+        const loginSuccess = await loginIfNeeded();
+        if (loginSuccess && isMounted) {
+          await refresh();
+        }
       } catch (e: any) {
-        setError(e?.message || "Startup error");
+        if (isMounted) setError(e?.message || "Startup error");
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     })();
+
+    return () => {
+      isMounted = false;
+    };
   }, [loginIfNeeded, refresh]);
 
   const completeTask: Ctx["completeTask"] = useCallback(
@@ -153,5 +176,5 @@ export function useApp() {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error("useApp must be used within AppProvider");
   return ctx;
-}
-
+          }
+  
