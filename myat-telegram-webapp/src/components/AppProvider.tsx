@@ -47,9 +47,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // 🚀 Telegram window ထဲက raw initData ကို ဆွဲထုတ်မည့် Helper function
+  const getAuthHeaders = useCallback(() => {
+    const initData = typeof window !== "undefined" ? (window as any).Telegram?.WebApp?.initData || "" : "";
+    return {
+      "Authorization": `Bearer ${initData}`,
+      "Content-Type": "application/json"
+    };
+  }, []);
+
   const refresh = useCallback(async () => {
     setError(null);
-    const res = await fetch("/api/me", { cache: "no-store" });
+    // 🛠️ Header စနစ် ပြောင်းလဲခြင်း
+    const res = await fetch("/api/me", { 
+      cache: "no-store",
+      headers: { "Authorization": getAuthHeaders().Authorization }
+    });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
       setMe(null);
@@ -58,12 +71,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     const data = await res.json();
     setMe(data);
-  }, []);
+  }, [getAuthHeaders]);
 
   const loginIfNeeded = useCallback(async () => {
-    // 1. အရင်ဆုံး profile ရှိလား စစ်မယ်
-    const res = await fetch("/api/me", { cache: "no-store" });
-    if (res.ok) return true; // Profile ရှိရင် ဘာမှလုပ်စရာမလို၊ ဆက်သွားမယ်
+    // 1. အရင်ဆုံး profile ရှိလား စစ်မယ် (Header ပါဝင်ပြီးသား)
+    const res = await fetch("/api/me", { 
+      cache: "no-store",
+      headers: { "Authorization": getAuthHeaders().Authorization }
+    });
+    if (res.ok) return true; 
     if (res.status !== 401) return false;
 
     // 2. 401 ပြရင် Telegram Web App ဟုတ်မဟုတ် စစ်ပြီး Auth လုပ်မယ်
@@ -86,8 +102,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return false;
     }
 
-    return true; // Login အောင်မြင်သွားပြီ
-  }, []);
+    return true; 
+  }, [getAuthHeaders]);
 
   useEffect(() => {
     let isMounted = true;
@@ -97,7 +113,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (tg?.ready) tg.ready();
         if (tg?.expand) tg.expand();
         
-        // Login အရင်လုပ်မယ်၊ အောင်မြင်မှ Profile ကို Refresh လုပ်မယ်
         const loginSuccess = await loginIfNeeded();
         if (loginSuccess && isMounted) {
           await refresh();
@@ -119,7 +134,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setError(null);
       const res = await fetch("/api/tasks/complete", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: getAuthHeaders(), // 🛠️ Header စနစ် ပြောင်းလဲခြင်း
         body: JSON.stringify({ taskKey }),
       });
       if (!res.ok) {
@@ -128,7 +143,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       await refresh();
     },
-    [refresh],
+    [refresh, getAuthHeaders],
   );
 
   const createOrder: Ctx["createOrder"] = useCallback(
@@ -136,7 +151,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setError(null);
       const res = await fetch("/api/orders", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: getAuthHeaders(), // 🛠️ Header စနစ် ပြောင်းလဲခြင်း
         body: JSON.stringify({ category: "WEBSITE", productKey }),
       });
       if (!res.ok) {
@@ -145,7 +160,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       await refresh();
     },
-    [refresh],
+    [refresh, getAuthHeaders],
   );
 
   const createWithdrawal: Ctx["createWithdrawal"] = useCallback(
@@ -153,7 +168,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setError(null);
       const res = await fetch("/api/withdrawals", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: getAuthHeaders(), // 🛠️ Header စနစ် ပြောင်းလဲခြင်း
         body: JSON.stringify({ points }),
       });
       if (!res.ok) {
@@ -162,7 +177,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       await refresh();
     },
-    [refresh],
+    [refresh, getAuthHeaders],
   );
 
   return (
@@ -176,5 +191,5 @@ export function useApp() {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error("useApp must be used within AppProvider");
   return ctx;
-          }
-  
+                                 }
+      
