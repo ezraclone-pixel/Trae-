@@ -11,7 +11,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Server not configured" }, { status: 500 });
   }
 
-  // Frontend က ပို့လိုက်တဲ့ raw initData ကို ဖတ်ခြင်း
   const body = await req.json().catch(() => ({}));
   const initData = body.initData;
 
@@ -19,7 +18,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing initData" }, { status: 400 });
   }
 
-  // ဒေတာ စစ်ဆေးခြင်း
   const verified = verifyTelegramInitData(initData, botToken);
   if (!verified.ok) {
     console.error("Telegram verification failed:", verified.error);
@@ -34,28 +32,38 @@ export async function POST(req: NextRequest) {
   const telegramId = String(tgUser.id);
 
   try {
-    // Referrer စစ်ဆေးခြင်း
     const startParam = verified.data.start_param || "";
     const referrerId = parseReferrer(startParam);
 
     const existing = await prisma.user.findUnique({ where: { telegramId } }).catch(() => null);
 
-    // Database ထဲသို့ အသုံးပြုသူ သိမ်းဆည်းခြင်း/မွမ်းမံခြင်း
+    // 🚀 Telegram က ပုံ URL မပေးရင် သုံးဖို့အတွက် Standard Avatar URL တစ်ခု ဖန်တီးခြင်း
+    const fallbackPhoto = tgUser.username 
+      ? `https://t.me/i/userpic/320/${tgUser.username}.jpg`
+      : null;
+
+    const finalPhotoUrl = tgUser.photo_url || fallbackPhoto;
+
+    // ✨ ယူဆာအသစ်ဝင်တိုင်း Telegram ဒေတာတွေကို အလိုအလျောက် ကွက်တိ သိမ်းဆည်း/မွမ်းမံခြင်း
     const user = await prisma.user.upsert({
       where: { telegramId },
       create: {
         telegramId,
-        username: tgUser.username || "",
-        firstName: tgUser.first_name || "",
-        lastName: tgUser.last_name || "",
-        photoUrl: tgUser.photo_url || "",
-        referrerId: !existing && referrerId && referrerId !== telegramId ? referrerId : undefined,
+        username: tgUser.username || null, // Empty String အစား NULL အဖြစ် သန့်သန့်ရှင်းရှင်းသိမ်းခြင်း
+        firstName: tgUser.first_name || "Telegram User",
+        lastName: tgUser.last_name || null,
+        photoUrl: finalPhotoUrl,
+        points: 0,
+        availablePoints: 0,
+        reservedPoints: 0,
+        referrerId: !existing && referrerId && referrerId !== telegramId ? referrerId : null,
       },
       update: {
-        username: tgUser.username || "",
-        firstName: tgUser.first_name || "",
-        lastName: tgUser.last_name || "",
-        photoUrl: tgUser.photo_url || "",
+        // 🔄 လူဟောင်းပြန်ဝင်လာရင်လည်း Telegram နာမည် သို့မဟုတ် ပုံ ပြောင်းသွားပါက လိုက်ပြင်ပေးရန်
+        username: tgUser.username || null,
+        firstName: tgUser.first_name || "Telegram User",
+        lastName: tgUser.last_name || null,
+        photoUrl: finalPhotoUrl || null,
       },
     });
 
@@ -72,7 +80,10 @@ export async function POST(req: NextRequest) {
 
           await tx.user.update({
             where: { telegramId: referrerId },
-            data: { points: { increment: 1500 } },
+            data: { 
+              points: { increment: 1500 },
+              availablePoints: { increment: 1500 }
+            },
           });
         });
       } catch (refError) {
@@ -80,7 +91,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Session ဆောက်ခြင်း
     if (typeof setUserSession === "function") {
       await setUserSession(telegramId).catch((err) => console.error("Session build error:", err));
     }
@@ -110,5 +120,5 @@ function parseReferrer(startParam: string): string | null {
   const v = startParam.startsWith("ref_") ? startParam.slice(4) : startParam;
   const cleaned = v.replace(/[^0-9]/g, "");
   return cleaned || null;
-}
-  
+        }
+        
