@@ -1,92 +1,33 @@
-import { SignJWT, jwtVerify } from "jose";
-import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
+import { verifyTelegramInitData } from "./telegram";
 
-const SESSION_COOKIE = "mw_session";
-const ADMIN_COOKIE = "mw_admin";
-
-function getSecret() {
-  const secret = process.env.APP_JWT_SECRET;
-  if (!secret) throw new Error("APP_JWT_SECRET is not set");
-  return new TextEncoder().encode(secret);
-}
-
-export async function setUserSession(telegramId: string) {
-  const token = await new SignJWT({ telegramId, typ: "user" })
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime("30d")
-    .sign(getSecret());
-
-  const jar = await cookies();
-  
-  // 🚀 Vercel + Telegram Mini App (iframe) အတွက် အကောင်းဆုံး Cookie Configuration
-  jar.set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    sameSite: "none", // <iframe> ထဲကနေ Cookie ပေးပို့ခွင့်ပြုရန်
-    secure: true,     // sameSite: "none" သုံးရင် secure က true မဖြစ်မနေ ဖြစ်ရပါမယ်
-    path: "/",
-    maxAge: 60 * 60 * 24 * 30,
-  });
-}
-
-export async function clearUserSession() {
-  const jar = await cookies();
-  jar.set(SESSION_COOKIE, "", { 
-    path: "/", 
-    maxAge: 0,
-    sameSite: "none",
-    secure: true 
-  });
-}
-
+// 🚀 Telegram Mini App (iframe) မှာ Cookie ပျောက်တဲ့ပြဿနာကို ကျော်လွှားရန် 
+// Header ကနေတစ်ဆင့် ခွင့်ပြုချက် စစ်ဆေးမည့် စနစ်
 export async function getUserIdFromRequest(req: NextRequest): Promise<string | null> {
-  const token = req.cookies.get(SESSION_COOKIE)?.value;
-  if (!token) return null;
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!botToken) return null;
+
+  // Frontend ကနေ headers: { "Authorization": "Bearer <initData>" } ဆိုပြီး ပို့လာပါလိမ့်မယ်
+  const authHeader = req.headers.get("authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
+
+  const initData = authHeader.substring(7); // "Bearer " ရဲ့ နောက်က raw initData ကို ဖြတ်ယူခြင်း
+  if (!initData) return null;
+
   try {
-    const { payload } = await jwtVerify(token, getSecret());
-    if (payload.typ !== "user") return null;
-    return String(payload.telegramId);
+    const verified = verifyTelegramInitData(initData, botToken);
+    if (!verified.ok || !verified.data?.user?.id) return null;
+
+    return String(verified.data.user.id);
   } catch {
     return null;
   }
 }
 
-export async function setAdminSession() {
-  const token = await new SignJWT({ typ: "admin" })
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime("7d")
-    .sign(getSecret());
-
-  const jar = await cookies();
-  jar.set(ADMIN_COOKIE, token, {
-    httpOnly: true,
-    sameSite: "none",
-    secure: true,
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7,
-  });
-}
-
-export async function clearAdminSession() {
-  const jar = await cookies();
-  jar.set(ADMIN_COOKIE, "", { 
-    path: "/", 
-    maxAge: 0,
-    sameSite: "none",
-    secure: true 
-  });
-}
-
-export async function isAdminRequest(req: NextRequest) {
-  const token = req.cookies.get(ADMIN_COOKIE)?.value;
-  if (!token) return false;
-  try {
-    const { payload } = await jwtVerify(token, getSecret());
-    return payload.typ === "admin";
-  } catch {
-    return false;
-  }
-    }
-    
+// ⚠️ အခြားဖိုင်တွေမှာ Error မတက်အောင် Function အဟောင်းတွေကို Empty ပုံစံပဲ ထားခဲ့ပါမယ်
+export async function setUserSession(telegramId: string) { return; }
+export async function clearUserSession() { return; }
+export async function setAdminSession() { return; }
+export async function clearAdminSession() { return; }
+export async function isAdminRequest(req: NextRequest) { return false; }
+  
