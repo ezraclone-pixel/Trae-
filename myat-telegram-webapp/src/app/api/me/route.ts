@@ -14,8 +14,19 @@ export async function GET(req: NextRequest) {
   const periodKey = getDailyPeriodKey12pmMyanmar();
 
   try {
-    const [user, daily, once, referralCount] = await Promise.all([
-      prisma.user.findUnique({ where: { telegramId: userId } }),
+    // 🚀 [အဓိကပြင်ဆင်ချက်] User မရှိသေးရင် ဒေတာဘေ့စ်ထဲမှာ အလိုအလျောက် Create လုပ်ပေးမည့် စနစ်
+    const user = await prisma.user.upsert({
+      where: { telegramId: userId },
+      update: {}, // ရှိပြီးသားဆိုရင် ဘာမှမလုပ်ဘူး
+      create: {
+        telegramId: userId,
+        points: 0,
+        reservedPoints: 0,
+      },
+    });
+
+    // User ရှိသွားပြီဖြစ်တဲ့အတွက် ကျန်တဲ့ Task တွေနဲ့ Referral တွေကို ဆက်ဆွဲမယ်
+    const [daily, once, referralCount] = await Promise.all([
       prisma.taskCompletion.findMany({
         where: { userId, periodKey, taskKey: { in: ["daily_login", "phrase"] } },
         select: { taskKey: true },
@@ -26,10 +37,6 @@ export async function GET(req: NextRequest) {
       }),
       prisma.user.count({ where: { referrerId: userId } }),
     ]);
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
 
     const doneDaily = new Set(daily.map((d) => d.taskKey));
     const doneOnce = new Set(once.map((d) => d.taskKey));
@@ -65,4 +72,4 @@ export async function GET(req: NextRequest) {
     console.error("Error in /api/me:", error);
     return NextResponse.json({ error: "Internal Server Error", details: error.message }, { status: 500 });
   }
-        }
+}
