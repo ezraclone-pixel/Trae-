@@ -58,7 +58,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const refresh = useCallback(async () => {
     setError(null);
-    // 🛠️ Header စနစ် ပြောင်းလဲခြင်း
+    // 🛠️ Header စနစ်ဖြင့် Profile ကို လှမ်းတောင်းခြင်း
     const res = await fetch("/api/me", { 
       cache: "no-store",
       headers: { "Authorization": getAuthHeaders().Authorization }
@@ -79,17 +79,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       cache: "no-store",
       headers: { "Authorization": getAuthHeaders().Authorization }
     });
+    
+    // ✅ အောင်မြင်ရင် Profile ရှိပြီးသားမို့လို့ true ပြန်ပြီး Dashboard ဆီ တန်းသွားမယ်
     if (res.ok) return true; 
-    if (res.status !== 401) return false;
 
-    // 2. 401 ပြရင် Telegram Web App ဟုတ်မဟုတ် စစ်ပြီး Auth လုပ်မယ်
+    // 🚀 [ဇာတ်သိမ်းခန်း ပြင်ဆင်ချက်] if (res.status !== 401) စာကြောင်းကို ဖြုတ်လိုက်ပါပြီ။
+    // အကြောင်းအမျိုးမျိုးကြောင့် ဒေတာမရတာနဲ့ အောက်က Telegram Auth စနစ်ဆီ အတင်းမောင်းနှင်ခိုင်းပါမယ်။
+    console.log("Profile verification skipped or failed, upgrading to Telegram Authentication...");
+
+    // 2. Telegram Web App ဟုတ်မဟုတ် စစ်ပြီး Auth လုပ်မယ်
     const initData = (window as any)?.Telegram?.WebApp?.initData as string | undefined;
     if (!initData) {
       setError("Please open this app inside Telegram");
       return false;
     }
 
-    // 3. Auth API ဆီ ပို့မယ်
+    // 3. /api/auth/telegram ဆီကို initData ပို့ပြီး စစ်ဆေးမှု ခံယူမယ်
     const authRes = await fetch("/api/auth/telegram", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -102,7 +107,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return false;
     }
 
-    return true; 
+    return true; // Login အောင်မြင်သွားပြီ
   }, [getAuthHeaders]);
 
   useEffect(() => {
@@ -134,7 +139,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setError(null);
       const res = await fetch("/api/tasks/complete", {
         method: "POST",
-        headers: getAuthHeaders(), // 🛠️ Header စနစ် ပြောင်းလဲခြင်း
+        headers: getAuthHeaders(),
         body: JSON.stringify({ taskKey }),
       });
       if (!res.ok) {
@@ -151,7 +156,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setError(null);
       const res = await fetch("/api/orders", {
         method: "POST",
-        headers: getAuthHeaders(), // 🛠️ Header စနစ် ပြောင်းလဲခြင်း
+        headers: getAuthHeaders(),
         body: JSON.stringify({ category: "WEBSITE", productKey }),
       });
       if (!res.ok) {
@@ -168,7 +173,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setError(null);
       const res = await fetch("/api/withdrawals", {
         method: "POST",
-        headers: getAuthHeaders(), // 🛠️ Header စနစ် ပြောင်းလဲခြင်း
+        headers: getAuthHeaders(),
         body: JSON.stringify({ points }),
       });
       if (!res.ok) {
@@ -191,5 +196,5 @@ export function useApp() {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error("useApp must be used within AppProvider");
   return ctx;
-                                 }
-      
+      }
+                                                      
