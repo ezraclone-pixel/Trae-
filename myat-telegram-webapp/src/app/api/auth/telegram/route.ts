@@ -14,7 +14,21 @@ export async function POST(req: NextRequest) {
   const { initData } = (await req.json().catch(() => ({}))) as { initData?: string };
   if (!initData) return NextResponse.json({ error: "Missing initData" }, { status: 400 });
 
-  const verified = verifyTelegramInitData(initData, botToken);
+  // 🚀 --- Render Environment အတွက် အထူးပြင်ဆင်ချက် ---
+  // Node.js က auto-decode လုပ်ထားတဲ့ string ကို မူရင်း raw URL query string ပုံစံ ပြန်ပြောင်းပေးခြင်း
+  let rawInitData = initData;
+  if (initData.includes("query_id=") && !initData.includes("%3D")) {
+    try {
+      const params = new URLSearchParams(initData);
+      rawInitData = params.toString();
+    } catch (e) {
+      console.error("Error formatting initData:", e);
+    }
+  }
+  // ---------------------------------------------------
+
+  // မူရင်း format ညှိပြီးသား rawInitData ကို သုံးပြီး စစ်ဆေးမယ်
+  const verified = verifyTelegramInitData(rawInitData, botToken);
   if (!verified.ok) return NextResponse.json({ error: verified.error }, { status: 401 });
 
   const tgUser = verified.data.user;
@@ -90,4 +104,4 @@ function parseReferrer(startParam: string): string | null {
   const cleaned = v.replace(/[^0-9]/g, "");
   if (!cleaned) return null;
   return cleaned;
-}
+      }
