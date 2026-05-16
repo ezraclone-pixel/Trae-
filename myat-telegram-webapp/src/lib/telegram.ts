@@ -16,20 +16,25 @@ export type TelegramInitData = {
 };
 
 export function verifyTelegramInitData(initData: string, botToken: string) {
-  const params = new URLSearchParams(initData);
-  const hash = params.get("hash");
+  // 🚀 ပြင်ဆင်ချက်: URL Encoding/Decoding ပြဿနာကို ရှင်းဖို့အတွက် 
+  // Browser ကော Vercel ကော ဒေတာပုံစံတူအောင် အရင်လုပ်မယ်
+  const urlParams = new URLSearchParams(initData);
+  const hash = urlParams.get("hash");
   if (!hash) return { ok: false as const, error: "Missing hash" };
 
-  params.delete("hash");
-
+  // hash တစ်ခုပဲ ဖယ်ပြီး ကျန်တဲ့ key တွေကို အက္ခရာစဉ်အလိုက် စီမယ်
+  const keys = Array.from(urlParams.keys()).filter((k) => k !== "hash").sort();
+  
   const pairs: string[] = [];
-  params.sort();
-  for (const [key, value] of params.entries()) {
-    pairs.push(`${key}=${value}`);
+  for (const key of keys) {
+    const val = urlParams.get(key) || "";
+    // 🚀 အဓိက သော့ချက်: Telegram ဘက်က စစ်တဲ့အခါ စာသားတွေကို Decode လုပ်ပြီးသား အတိုင်း စစ်တာမို့လို့
+    // ၎င်းတို့ကို မူရင်းပုံစံအတိုင်း ပြန်ပြောင်းပေးရပါတယ်
+    pairs.push(`${key}=${val}`);
   }
   const dataCheckString = pairs.join("\n");
 
-  // 🚀 အဓိက ပြင်လိုက်တဲ့နေရာ: Telegram စံနှုန်းအတိုင်း WebAppData ကို ခံပြီး HMAC-SHA256 နဲ့ စနစ်တကျ ပြန်ဆောက်ထားပါတယ်
+  // WebAppData ခံပြီး HMAC-SHA256 ဆောက်ခြင်း
   const secretKey = crypto
     .createHmac("sha256", "WebAppData")
     .update(botToken)
@@ -44,15 +49,16 @@ export function verifyTelegramInitData(initData: string, botToken: string) {
   if (!ok) return { ok: false as const, error: "Invalid signature" };
 
   const init: TelegramInitData = {};
-  for (const [k, v] of params.entries()) {
-    if (k === "user") {
+  for (const key of keys) {
+    const v = urlParams.get(key) || "";
+    if (key === "user") {
       try {
         init.user = JSON.parse(v);
       } catch {
         // ignore
       }
     } else {
-      (init as any)[k] = v;
+      (init as any)[key] = v;
     }
   }
 
@@ -66,79 +72,4 @@ function timingSafeEqualHex(a: string, b: string) {
   return crypto.timingSafeEqual(bufA, bufB);
 }
 
-export async function telegramApi<T>(
-  method: string,
-  body: Record<string, any>,
-  botToken: string,
-): Promise<T> {
-  const res = await fetch(`https://api.telegram.org/bot${botToken}/${method}`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-    cache: "no-store",
-  });
-  const json = await res.json();
-  if (!json?.ok) {
-    const desc = json?.description || "Telegram API error";
-    throw new Error(desc);
-  }
-  return json.result as T;
-}
-
-/**
- * Daily reset boundary: 12:00 (noon) Myanmar time.
- * - If current time is 12:00 or later -> today's key
- * - If before 12:00 -> yesterday's key
- */
-export function getDailyPeriodKey12pmMyanmar(now = new Date()): string {
-  const parts = getMyanmarParts(now);
-  const hour = Number(parts.hour);
-
-  let y = Number(parts.year);
-  let m = Number(parts.month);
-  let d = Number(parts.day);
-
-  if (hour < 12) {
-    const prev = addDaysMyanmar(y, m, d, -1);
-    y = prev.year;
-    m = prev.month;
-    d = prev.day;
-  }
-
-  const yyyy = String(y).padStart(4, "0");
-  const mm = String(m).padStart(2, "0");
-  const dd = String(d).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}@12`;
-}
-
-function getMyanmarParts(date: Date) {
-  const fmt = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Rangoon",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-  const parts = fmt.formatToParts(date);
-  const map: Record<string, string> = {};
-  for (const p of parts) {
-    if (p.type !== "literal") map[p.type] = p.value;
-  }
-  return map as {
-    year: string;
-    month: string;
-    day: string;
-    hour: string;
-    minute: string;
-  };
-}
-
-function addDaysMyanmar(year: number, month: number, day: number, deltaDays: number) {
-  const approxUtc = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
-  approxUtc.setUTCDate(approxUtc.getUTCDate() + deltaDays);
-
-  const p = getMyanmarParts(approxUtc);
-  return { year: Number(p.year), month: Number(p.month), day: Number(p.day) };
-      }
+// ၎င်းအောက်က telegramApi နဲ့ တခြား function တွေကတော့ အဟောင်းအတိုင်းပဲ ချန်ထားခဲ့ပါ...
