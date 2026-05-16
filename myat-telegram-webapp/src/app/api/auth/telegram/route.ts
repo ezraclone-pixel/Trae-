@@ -11,40 +11,36 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Server not configured" }, { status: 500 });
   }
 
-  const { initData } = (await req.json().catch(() => ({}))) as { initData?: string };
-  if (!initData) return NextResponse.json({ error: "Missing initData" }, { status: 400 });
+  // Frontend က ပို့လိုက်တဲ့ raw initData ကို ဖတ်ခြင်း
+  const body = await req.json().catch(() => ({}));
+  const initData = body.initData;
 
-  // 🚀 Vercel URL Safe ဖြစ်အောင် ဒေတာကို Clean လုပ်ခြင်း
-  let cleanInitData = initData;
-  try {
-    const params = new URLSearchParams(initData);
-    if (params.has("user") || params.has("hash")) {
-      cleanInitData = params.toString();
-    }
-  } catch (e) {
-    console.error("Error formatting initData on Vercel:", e);
+  if (!initData) {
+    return NextResponse.json({ error: "Missing initData" }, { status: 400 });
   }
 
-  // Telegram Signature စစ်ဆေးခြင်း
-  const verified = verifyTelegramInitData(cleanInitData, botToken);
+  // ဒေတာ စစ်ဆေးခြင်း
+  const verified = verifyTelegramInitData(initData, botToken);
   if (!verified.ok) {
     console.error("Telegram verification failed:", verified.error);
     return NextResponse.json({ error: verified.error }, { status: 401 });
   }
 
   const tgUser = verified.data.user;
-  if (!tgUser?.id) return NextResponse.json({ error: "Missing Telegram user" }, { status: 400 });
+  if (!tgUser?.id) {
+    return NextResponse.json({ error: "Missing Telegram user data" }, { status: 400 });
+  }
 
   const telegramId = String(tgUser.id);
 
   try {
-    // Handle referrals
+    // Referrer စစ်ဆေးခြင်း
     const startParam = verified.data.start_param || "";
     const referrerId = parseReferrer(startParam);
 
-    // 🚀 ပြင်ဆင်ချက် ၁: Prisma database crash ဖြစ်ခြင်းမှ ကာကွယ်ရန်
     const existing = await prisma.user.findUnique({ where: { telegramId } }).catch(() => null);
 
+    // Database ထဲသို့ အသုံးပြုသူ သိမ်းဆည်းခြင်း/မွမ်းမံခြင်း
     const user = await prisma.user.upsert({
       where: { telegramId },
       create: {
@@ -63,13 +59,11 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Referral Credit ပေးခြင်း
+    // Referral Points ပေးခြင်း လုပ်ငန်းစဉ်
     if (!existing && referrerId && referrerId !== telegramId) {
       try {
         await prisma.$transaction(async (tx) => {
-          const alreadyCredited = await tx.referralCredit.findUnique({
-            where: { referredId: telegramId },
-          });
+          const alreadyCredited = await tx.referralCredit.findUnique({ where: { referredId: telegramId } });
           if (alreadyCredited) return;
 
           await tx.referralCredit.create({
@@ -82,15 +76,13 @@ export async function POST(req: NextRequest) {
           });
         });
       } catch (refError) {
-        console.error("Referral crediting failed, but skipping to avoid blocking login:", refError);
+        console.error("Referral transaction skipped:", refError);
       }
     }
 
-    // 🚀 ပြင်ဆင်ချက် ၂: Session ဆောက်တဲ့နေရာကို စိတ်ချရအောင်လုပ်ခြင်း
+    // Session ဆောက်ခြင်း
     if (typeof setUserSession === "function") {
-      await setUserSession(telegramId).catch((err) => {
-        console.error("setUserSession logic failed:", err);
-      });
+      await setUserSession(telegramId).catch((err) => console.error("Session build error:", err));
     }
 
     return NextResponse.json({
@@ -108,8 +100,8 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (dbError: any) {
-    console.error("Database operation failed:", dbError);
-    return NextResponse.json({ error: "Authentication failed internally", details: dbError.message }, { status: 500 });
+    console.error("Database or Auth process crash:", dbError);
+    return NextResponse.json({ error: "Internal Auth failed", details: dbError.message }, { status: 500 });
   }
 }
 
@@ -117,7 +109,6 @@ function parseReferrer(startParam: string): string | null {
   if (!startParam) return null;
   const v = startParam.startsWith("ref_") ? startParam.slice(4) : startParam;
   const cleaned = v.replace(/[^0-9]/g, "");
-  if (!cleaned) return null;
-  return cleaned;
+  return cleaned || null;
 }
   
