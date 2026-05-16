@@ -29,7 +29,12 @@ export function verifyTelegramInitData(initData: string, botToken: string) {
   }
   const dataCheckString = pairs.join("\n");
 
-  const secretKey = crypto.createHash("sha256").update(botToken).digest();
+  // 🚀 အဓိက ပြင်လိုက်တဲ့နေရာ: Telegram စံနှုန်းအတိုင်း WebAppData ကို ခံပြီး HMAC-SHA256 နဲ့ စနစ်တကျ ပြန်ဆောက်ထားပါတယ်
+  const secretKey = crypto
+    .createHmac("sha256", "WebAppData")
+    .update(botToken)
+    .digest();
+
   const calculatedHash = crypto
     .createHmac("sha256", secretKey)
     .update(dataCheckString)
@@ -38,15 +43,16 @@ export function verifyTelegramInitData(initData: string, botToken: string) {
   const ok = timingSafeEqualHex(calculatedHash, hash);
   if (!ok) return { ok: false as const, error: "Invalid signature" };
 
-  const userRaw = params.get("user");
   const init: TelegramInitData = {};
-  for (const [k, v] of params.entries()) (init as any)[k] = v;
-
-  if (userRaw) {
-    try {
-      init.user = JSON.parse(userRaw);
-    } catch {
-      // ignore
+  for (const [k, v] of params.entries()) {
+    if (k === "user") {
+      try {
+        init.user = JSON.parse(v);
+      } catch {
+        // ignore
+      }
+    } else {
+      (init as any)[k] = v;
     }
   }
 
@@ -88,7 +94,6 @@ export function getDailyPeriodKey12pmMyanmar(now = new Date()): string {
   const parts = getMyanmarParts(now);
   const hour = Number(parts.hour);
 
-  // Build date string yyyy-mm-dd in Myanmar timezone
   let y = Number(parts.year);
   let m = Number(parts.month);
   let d = Number(parts.day);
@@ -131,13 +136,9 @@ function getMyanmarParts(date: Date) {
 }
 
 function addDaysMyanmar(year: number, month: number, day: number, deltaDays: number) {
-  // Convert the provided Y-M-D (Myanmar date) into a UTC date by using noon to avoid DST issues.
-  // Myanmar has no DST, but this keeps it stable across environments.
   const approxUtc = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
   approxUtc.setUTCDate(approxUtc.getUTCDate() + deltaDays);
 
-  // Now read back that UTC date into Myanmar Y-M-D
   const p = getMyanmarParts(approxUtc);
   return { year: Number(p.year), month: Number(p.month), day: Number(p.day) };
-}
-
+      }
