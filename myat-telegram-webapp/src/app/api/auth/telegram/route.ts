@@ -14,8 +14,20 @@ export async function POST(req: NextRequest) {
   const { initData } = (await req.json().catch(() => ({}))) as { initData?: string };
   if (!initData) return NextResponse.json({ error: "Missing initData" }, { status: 400 });
 
-  // 🚀 Vercel Environment အတွက် မူရင်းအတိုင်း တိုက်ရိုက် စစ်ဆေးမယ်
-  const verified = verifyTelegramInitData(initData, botToken);
+  // 🚀 Vercel နဲ့ အကိုက်ညီဆုံးဖြစ်အောင် ဒေတာကို ခွဲထုတ်ပြီး Clean Query ဖြစ်အောင် အရင်လုပ်မယ်
+  let cleanInitData = initData;
+  try {
+    const params = new URLSearchParams(initData);
+    // အကယ်၍ အထဲမှာ သေချာစစ်ဖို့ ဒေတာတွေ ပါလာခဲ့ရင် ပုံစံတကျ string ပြန်ပြောင်းပေးခြင်း
+    if (params.has("user") || params.has("hash")) {
+      cleanInitData = params.toString();
+    }
+  } catch (e) {
+    console.error("Error formatting initData on Vercel:", e);
+  }
+
+  // စနစ်တကျ ညှိပြီးသား cleanInitData ကို သုံးပြီး စစ်ဆေးမယ်
+  const verified = verifyTelegramInitData(cleanInitData, botToken);
   if (!verified.ok) return NextResponse.json({ error: verified.error }, { status: 401 });
 
   const tgUser = verified.data.user;
@@ -90,4 +102,5 @@ function parseReferrer(startParam: string): string | null {
   const cleaned = v.replace(/[^0-9]/g, "");
   if (!cleaned) return null;
   return cleaned;
-    }
+}
+  
