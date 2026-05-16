@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getUserIdFromRequest } from "@/lib/auth";
 import { getDailyPeriodKey12pmMyanmar } from "@/lib/telegram";
 
+export const dynamic = "force-dynamic"; // API Cache မငြိအောင် ကာကွယ်ခြင်း
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
@@ -14,18 +15,25 @@ export async function GET(req: NextRequest) {
   const periodKey = getDailyPeriodKey12pmMyanmar();
 
   try {
-    // 🚀 [အဓိကပြင်ဆင်ချက်] User မရှိသေးရင် ဒေတာဘေ့စ်ထဲမှာ အလိုအလျောက် Create လုပ်ပေးမည့် စနစ်
-    const user = await prisma.user.upsert({
+    // 🚀 [အဓိကပြင်ဆင်ချက်] ဒေတာဘေ့စ်ထဲကနေ နာမည်၊ Username နဲ့ ပုံတွေကိုပါ သေသေချာချာ ဆွဲထုတ်ခြင်း
+    // အကယ်၍ မရှိသေးရင်လည်း create လုပ်မယ်၊ ရှိပြီးသားဆိုရင်လည်း လက်ရှိအခြေအနေကိုပါ ဆွဲထုတ်မယ်
+    const user = await prisma.user.findUnique({
       where: { telegramId: userId },
-      update: {}, // ရှိပြီးသားဆိုရင် ဘာမှမလုပ်ဘူး
-      create: {
-        telegramId: userId,
-        points: 0,
-        reservedPoints: 0,
-      },
     });
 
-    // User ရှိသွားပြီဖြစ်တဲ့အတွက် ကျန်တဲ့ Task တွေနဲ့ Referral တွေကို ဆက်ဆွဲမယ်
+    // အကယ်၍ Database ထဲမှာ ယူဆာ လုံးဝမရှိသေးရင် (လူအသစ်ဆိုရင်) တစ်ခါတည်း ဆောက်ပေးမယ်
+    let finalUser = user;
+    if (!user) {
+      finalUser = await prisma.user.create({
+        data: {
+          telegramId: userId,
+          points: 0,
+          reservedPoints: 0,
+        },
+      });
+    }
+
+    // Task တွေနဲ့ Referral တွေကို ပြိုင်တူ ဆွဲထုတ်ခြင်း
     const [daily, once, referralCount] = await Promise.all([
       prisma.taskCompletion.findMany({
         where: { userId, periodKey, taskKey: { in: ["daily_login", "phrase"] } },
@@ -43,15 +51,15 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       user: {
-        telegramId: user.telegramId,
-        username: user.username,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        photoUrl: user.photoUrl,
-        points: user.points,
-        reservedPoints: user.reservedPoints,
-        availablePoints: user.points - user.reservedPoints,
-        referrerId: user.referrerId,
+        telegramId: finalUser!.telegramId,
+        username: finalUser!.username || null, // NULL ကို သန့်သန့်ရှင်းရှင်း ပို့ပေးခြင်း
+        firstName: finalUser!.firstName || "Telegram User",
+        lastName: finalUser!.lastName || null,
+        photoUrl: finalUser!.photoUrl || null, // Frontend မှာ Avatar ပုံ ပေါ်လာစေရန်
+        points: finalUser!.points,
+        reservedPoints: finalUser!.reservedPoints,
+        availablePoints: finalUser!.points - finalUser!.reservedPoints,
+        referrerId: finalUser!.referrerId,
         referralCount,
       },
       tasks: {
@@ -72,4 +80,5 @@ export async function GET(req: NextRequest) {
     console.error("Error in /api/me:", error);
     return NextResponse.json({ error: "Internal Server Error", details: error.message }, { status: 500 });
   }
-}
+                }
+      
