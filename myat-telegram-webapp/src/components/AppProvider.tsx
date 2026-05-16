@@ -47,20 +47,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // 🚀 Telegram initData (Raw String သီးသန့်) ကို ရှာဖွေပေးမည့် Helper
   const getRawTelegramInitData = useCallback(() => {
     if (typeof window === "undefined") return "";
-    
     const tgWindow = window as any;
-    // ၁။ Standard နည်းလမ်းအရ ယူမယ်
     let initData = tgWindow.Telegram?.WebApp?.initData || "";
     
-    // ၂။ အကယ်၍ Blank ဖြစ်နေလျှင် URL Hash ထဲကနေပါ ရှာပြီး ထပ်ဆွဲထုတ်မယ်
     if (!initData && tgWindow.location?.hash) {
       const hashParams = new URLSearchParams(tgWindow.location.hash.substring(1));
       initData = hashParams.get("tgWebAppData") || "";
     }
-    
     return initData;
   }, []);
 
@@ -68,7 +63,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setError(null);
     const rawToken = getRawTelegramInitData();
     
-    // 🛠️ Header ထဲကို Bearer တပ်ပြီး ပို့မယ်
     const res = await fetch("/api/me", { 
       cache: "no-store",
       headers: { 
@@ -87,23 +81,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setMe(data);
   }, [getRawTelegramInitData]);
 
+  // 🔄 အမြဲတမ်း Telegram Auth API ဆီသွားပြီး နာမည်နဲ့ ပုံတွေ အလိုအလျောက် Sync လုပ်ခိုင်းခြင်း
   const loginIfNeeded = useCallback(async () => {
     const rawToken = getRawTelegramInitData();
     
-    // 1. အရင်ဆုံး profile ရှိလား Bearer Header နဲ့ စစ်မယ်
-    const res = await fetch("/api/me", { 
-      cache: "no-store",
-      headers: { 
-        "Authorization": `Bearer ${rawToken}`,
-        "Content-Type": "application/json"
-      }
-    });
-    
-    if (res.ok) return true; 
+    console.log("Syncing user data with Telegram Authentication...");
 
-    console.log("Profile verification skipped or failed, upgrading to Telegram Authentication...");
-
-    // 2. /api/auth/telegram ဆီကို "Bearer " မပါတဲ့ rawToken သီးသန့်ကိုပဲ ပို့ပြီး စစ်ခိုင်းမယ် (၅၀၀ error မတက်အောင်)
+    // 🚀 တိုက်ရိုက် /api/auth/telegram ဆီကို သွားခိုင်းပြီး ဒေတာ အပ်ဒိတ်လုပ်ခိုင်းခြင်း
     const authRes = await fetch("/api/auth/telegram", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -133,7 +117,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         
         const loginSuccess = await loginIfNeeded();
         if (loginSuccess && isMounted) {
-          await refresh();
+          await refresh(); // Auth အောင်မြင်တာနဲ့ ယူဆာဒေတာသစ်ကို တစ်ခါတည်း ဆွဲယူမယ်
         }
       } catch (e: any) {
         if (isMounted) setError(e?.message || "Startup error");
@@ -222,4 +206,4 @@ export function useApp() {
   if (!ctx) throw new Error("useApp must be used within AppProvider");
   return ctx;
   }
-      
+    
