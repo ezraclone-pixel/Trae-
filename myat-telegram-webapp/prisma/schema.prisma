@@ -7,84 +7,83 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// 💡 SQL ထဲက ပုံစံအတိုင်း ကိုက်ညီအောင် Next.js ဘက်မှာ Enums အစား String (သို့မဟုတ် Text) အဖြစ် ပြောင်းသုံးပါမယ်
-
 model User {
-  /// Telegram user id
-  telegramId String @id
+  telegramId String @id @map("telegramId")
 
   username  String?
-  firstName String?  // Supabase ထဲက firstName နဲ့ ကွက်တိ ကိုက်ပါမည်
-  lastName  String?  // Supabase ထဲက lastName နဲ့ ကွက်တိ ကိုက်ပါမည်
-  photoUrl  String?  // Supabase ထဲက photoUrl နဲ့ ကွက်တိ ကိုက်ပါမည်
+  firstName String? @map("firstName")
+  lastName  String? @map("lastName")
+  photoUrl  String? @map("photoUrl")
 
   points         Int @default(0)
-  reservedPoints Int @default(0)
+  reservedPoints Int @default(0) @map("reservedPoints")
 
-  referrerId String?
+  referrerId String? @map("referrerId")
   referrer   User?   @relation("Referrals", fields: [referrerId], references: [telegramId])
   referrals  User[]  @relation("Referrals")
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("createdAt")
+  updatedAt DateTime @updatedAt @map("updatedAt")
 
   taskCompletions TaskCompletion[]
   orders          Order[]
   withdrawals     WithdrawalRequest[]
   referralCredits ReferralCredit[] @relation("ReferrerCredits")
+
+  @@map("User")
 }
 
 model TaskCompletion {
-  id        String   @id @default(cuid())
-  userId    String
+  id        String   @id @map("id")
+  userId    String   @map("userId")
   user      User     @relation(fields: [userId], references: [telegramId], onDelete: Cascade)
-  taskKey   String
-  periodKey String
-  meta      Json?
-  createdAt DateTime @default(now())
+  taskKey   String   @map("taskKey")
+  periodKey String   @map("periodKey")
+  meta      Json?    @map("meta")
+  createdAt DateTime @default(now()) @map("createdAt")
 
-  @@unique([userId, taskKey, periodKey])
-  @@index([taskKey, periodKey])
+  @@unique([userId, taskKey, periodKey], map: "TaskCompletion_userId_taskKey_periodKey_key")
+  @@index([taskKey, periodKey], map: "TaskCompletion_taskKey_periodKey_idx")
+  @@map("TaskCompletion")
 }
 
 model ReferralCredit {
-  id        String   @id @default(cuid())
-  referrerId String
+  id        String   @id @map("id")
+  referrerId String  @map("referrerId")
   referrer   User     @relation("ReferrerCredits", fields: [referrerId], references: [telegramId], onDelete: Cascade)
-  referredId String  @unique
-  points     Int     @default(1500)
-  createdAt  DateTime @default(now())
+  referredId String  @unique @map("referredId")
+  points     Int     @default(1500) @map("points")
+  createdAt  DateTime @default(now()) @map("createdAt")
+
+  @@map("ReferralCredit")
 }
 
 model Order {
-  id        String   @id @default(cuid())
-  userId    String
+  id        String   @id @map("id")
+  userId    String   @map("userId")
   user      User     @relation(fields: [userId], references: [telegramId], onDelete: Cascade)
-  
-  // 🚀 [ပြင်ဆင်ချက်] Enum နေရာမှာ String ပြောင်းပေးရပါမယ် (SQL Editor က TEXT နဲ့ ကိုက်အောင်လို့ပါ)
-  category  String
-  productKey String
-  priceMMK  Int?
-  status    String @default("PENDING")
-  
-  pointsEarned Int @default(0)
-  createdAt DateTime @default(now())
+  category  String   @map("category")
+  productKey String  @map("productKey")
+  priceMMK  Int?     @map("priceMMK")
+  status    String   @default("PENDING") @map("status")
+  pointsEarned Int   @default(0) @map("pointsEarned")
+  createdAt DateTime @default(now()) @map("createdAt")
+
+  @@map("Order")
 }
 
 model WithdrawalRequest {
-  id        String   @id @default(cuid())
-  userId    String
+  id        String   @id @map("id")
+  userId    String   @map("userId")
   user      User     @relation(fields: [userId], references: [telegramId], onDelete: Cascade)
-  points    Int
-  mmk       Int
-  
-  // 🚀 [ပြင်ဆင်ချက်] Enum နေရာမှာ String ပြောင်းပေးရပါမယ် (SQL Editor က TEXT နဲ့ ကိုက်အောင်လို့ပါ)
-  status    String @default("PENDING")
-  
-  createdAt DateTime @default(now())
-  handledAt DateTime?
-  handledBy String?
-  note      String?
+  points    Int      @map("points")
+  mmk       Int      @map("mmk")
+  status    String   @default("PENDING") @map("status")
+  createdAt DateTime @default(now()) @map("createdAt")
+  handledAt DateTime? @map("handledAt")
+  handledBy String?  @map("handledBy")
+  note      String?  @map("note")
 
-  @@index([status, createdAt])
+  @@index([status, createdAt], map: "WithdrawalRequest_status_createdAt_idx")
+  @@map("WithdrawalRequest")
 }
