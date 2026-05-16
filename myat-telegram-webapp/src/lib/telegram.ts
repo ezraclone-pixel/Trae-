@@ -16,53 +16,69 @@ export type TelegramInitData = {
 };
 
 export function verifyTelegramInitData(initData: string, botToken: string) {
-  // 🚀 ပြင်ဆင်ချက်: URL Encoding/Decoding ပြဿနာကို ရှင်းဖို့အတွက် 
-  // Browser ကော Vercel ကော ဒေတာပုံစံတူအောင် အရင်လုပ်မယ်
-  const urlParams = new URLSearchParams(initData);
-  const hash = urlParams.get("hash");
-  if (!hash) return { ok: false as const, error: "Missing hash" };
+  if (!initData) return { ok: false as const, error: "Missing initData" };
 
-  // hash တစ်ခုပဲ ဖယ်ပြီး ကျန်တဲ့ key တွေကို အက္ခရာစဉ်အလိုက် စီမယ်
-  const keys = Array.from(urlParams.keys()).filter((k) => k !== "hash").sort();
-  
-  const pairs: string[] = [];
-  for (const key of keys) {
-    const val = urlParams.get(key) || "";
-    // 🚀 အဓိက သော့ချက်: Telegram ဘက်က စစ်တဲ့အခါ စာသားတွေကို Decode လုပ်ပြီးသား အတိုင်း စစ်တာမို့လို့
-    // ၎င်းတို့ကို မူရင်းပုံစံအတိုင်း ပြန်ပြောင်းပေးရပါတယ်
-    pairs.push(`${key}=${val}`);
-  }
-  const dataCheckString = pairs.join("\n");
+  try {
+    // 🚀 Vercel Encoding ပြဿနာကို ကျော်လွှားရန် ရိုးရိုး String Split နည်းလမ်းကို သုံးပါမယ်
+    const pairs = initData.split("&");
+    let telegramHash = "";
+    const dataCheckPairs: string[] = [];
 
-  // WebAppData ခံပြီး HMAC-SHA256 ဆောက်ခြင်း
-  const secretKey = crypto
-    .createHmac("sha256", "WebAppData")
-    .update(botToken)
-    .digest();
+    for (const pair of pairs) {
+      const [key, ...valueParts] = pair.split("=");
+      const value = valueParts.join("="); // value ထဲမှာ = ပြန်ပါလာခဲ့ရင် ညှိရန်
+      
+      // %20 သို့မဟုတ် + တွေကို မူရင်း Telegram ပုံစံအတိုင်း Decode ပြန်လုပ်မယ်
+      const decodedKey = decodeURIComponent(key);
+      const decodedValue = decodeURIComponent(value);
 
-  const calculatedHash = crypto
-    .createHmac("sha256", secretKey)
-    .update(dataCheckString)
-    .digest("hex");
-
-  const ok = timingSafeEqualHex(calculatedHash, hash);
-  if (!ok) return { ok: false as const, error: "Invalid signature" };
-
-  const init: TelegramInitData = {};
-  for (const key of keys) {
-    const v = urlParams.get(key) || "";
-    if (key === "user") {
-      try {
-        init.user = JSON.parse(v);
-      } catch {
-        // ignore
+      if (decodedKey === "hash") {
+        telegramHash = decodedValue;
+      } else {
+        dataCheckPairs.push(`${decodedKey}=${decodedValue}`);
       }
-    } else {
-      (init as any)[key] = v;
     }
-  }
 
-  return { ok: true as const, data: init };
+    if (!telegramHash) return { ok: false as const, error: "Missing hash" };
+
+    // Telegram စည်းမျဉ်းအတိုင်း Key များကို အက္ခရာစဉ်အလိုက် စီမယ်
+    dataCheckPairs.sort();
+    const dataCheckString = dataCheckPairs.join("\n");
+
+    // WebAppData ကို ခံပြီး HMAC-SHA256 ဆောက်ခြင်း
+    const secretKey = crypto
+      .createHmac("sha256", "WebAppData")
+      .update(botToken)
+      .digest();
+
+    const calculatedHash = crypto
+      .createHmac("sha256", secretKey)
+      .update(dataCheckString)
+      .digest("hex");
+
+    // Timing attack ကာကွယ်ပြီး တိုက်စစ်ခြင်း
+    const ok = timingSafeEqualHex(calculatedHash, telegramHash);
+    if (!ok) return { ok: false as const, error: "Invalid signature" };
+
+    // ဒေတာများကို သက်ဆိုင်ရာ Object အဖြစ် ပြန်ပြောင်းခြင်း
+    const init: TelegramInitData = {};
+    for (const pair of dataCheckPairs) {
+      const [k, v] = pair.split("=");
+      if (k === "user") {
+        try {
+          init.user = JSON.parse(v);
+        } catch {
+          // ignore
+        }
+      } else {
+        (init as any)[k] = v;
+      }
+    }
+
+    return { ok: true as const, data: init };
+  } catch (err: any) {
+    return { ok: false as const, error: err.message || "Verification crash" };
+  }
 }
 
 function timingSafeEqualHex(a: string, b: string) {
@@ -72,4 +88,43 @@ function timingSafeEqualHex(a: string, b: string) {
   return crypto.timingSafeEqual(bufA, bufB);
 }
 
-// ၎င်းအောက်က telegramApi နဲ့ တခြား function တွေကတော့ အဟောင်းအတိုင်းပဲ ချန်ထားခဲ့ပါ...
+export async function telegramApi<T>(
+  method: string,
+  body: Record<string, any>,
+  botToken: string,
+): Promise<T> {
+  const res = await fetch(`https://api.telegram.org/bot${botToken}/${method}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+  const json = await res.json();
+  if (!json?.ok) {
+    const desc = json?.description || "Telegram API error";
+    throw new Error(desc);
+  }
+  return json.result as T;
+}
+
+export function getDailyPeriodKey12pmMyanmar(now = new Date()): string {
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Rangoon",
+    year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hour12: false
+  });
+  const parts = fmt.formatToParts(now);
+  const map: Record<string, string> = {};
+  for (const p of parts) if (p.type !== "literal") map[p.type] = p.value;
+
+  let y = Number(map.year), m = Number(map.month), d = Number(map.day);
+  if (Number(map.hour) < 12) {
+    const prev = new Date(Date.UTC(y, m - 1, d, 12));
+    prev.setUTCDate(prev.getUTCDate() - 1);
+    const p2 = fmt.formatToParts(prev);
+    const m2: Record<string, string> = {};
+    for (const p of p2) if (p.type !== "literal") m2[p.type] = p.value;
+    y = Number(m2.year); m = Number(m2.month); d = Number(m2.day);
+  }
+  return `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}@12`;
+    }
+      
