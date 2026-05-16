@@ -47,7 +47,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // 🚀 Telegram initData ကို နည်းလမ်းမျိုးစုံဖြင့် အမိအရ ရှာဖွေပေးမည့် ပိုမိုစိတ်ချရသော စနစ်
+  // 🚀 Telegram initData ကို နည်းလမ်းမျိုးစုံဖြင့် ရှာဖွေပေးမည့် Helper
   const getTelegramInitData = useCallback(() => {
     if (typeof window === "undefined") return "";
     
@@ -55,7 +55,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // ၁။ Standard နည်းလမ်းအရ ယူမယ်
     let initData = tgWindow.Telegram?.WebApp?.initData || "";
     
-    // ၂။ အကယ်၍ ပထမနည်းလမ်းမှာ Blank ဖြစ်နေလျှင် URL Hash/Fragment ထဲကနေပါ ရှာပြီး ထပ်ဆွဲထုတ်မယ်
+    // ၂။ အကယ်၍ Blank ဖြစ်နေလျှင် URL Hash ထဲကနေပါ ရှာပြီး ထပ်ဆွဲထုတ်မယ်
     if (!initData && tgWindow.location?.hash) {
       const hashParams = new URLSearchParams(tgWindow.location.hash.substring(1));
       initData = hashParams.get("tgWebAppData") || "";
@@ -68,7 +68,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setError(null);
     const token = getTelegramInitData();
     
-    // 🛠️ Header စနစ်ဖြင့် Profile ကို လှမ်းတောင်းခြင်း
     const res = await fetch("/api/me", { 
       cache: "no-store",
       headers: { 
@@ -76,6 +75,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         "Content-Type": "application/json"
       }
     });
+
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
       setMe(null);
@@ -98,7 +98,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     });
     
-    // ✅ အောင်မြင်ရင် Profile ရှိပြီးသားမို့လို့ true ပြန်ပြီး Dashboard ဆီ တန်းသွားမယ်
     if (res.ok) return true; 
 
     console.log("Profile verification skipped or failed, upgrading to Telegram Authentication...");
@@ -116,16 +115,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return false;
     }
 
-    return true; // Login အောင်မြင်သွားပြီ
+    return true;
   }, [getTelegramInitData]);
 
   useEffect(() => {
     let isMounted = true;
     (async () => {
       try {
+        // 🚀 Telegram Script တက်လာအောင် 500ms (တစ်ဝက်စက္ကန့်) ခဏ စောင့်ပေးမည့်စနစ်
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
         const tg = (window as any)?.Telegram?.WebApp;
-        if (tg?.ready) tg.ready();
-        if (tg?.expand) tg.expand();
+        if (tg) {
+          if (tg.ready) tg.ready();
+          if (tg.expand) tg.expand();
+        }
         
         const loginSuccess = await loginIfNeeded();
         if (loginSuccess && isMounted) {
@@ -217,5 +221,5 @@ export function useApp() {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error("useApp must be used within AppProvider");
   return ctx;
-    }
-    
+                                    }
+          
