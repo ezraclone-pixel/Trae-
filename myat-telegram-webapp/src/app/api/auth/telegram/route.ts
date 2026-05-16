@@ -14,11 +14,10 @@ export async function POST(req: NextRequest) {
   const { initData } = (await req.json().catch(() => ({}))) as { initData?: string };
   if (!initData) return NextResponse.json({ error: "Missing initData" }, { status: 400 });
 
-  // 🚀 Vercel နဲ့ အကိုက်ညီဆုံးဖြစ်အောင် ဒေတာကို ခွဲထုတ်ပြီး Clean Query ဖြစ်အောင် အရင်လုပ်မယ်
+  // 🚀 Vercel URL Safe ဖြစ်အောင် ဒေတာကို Clean လုပ်ခြင်း
   let cleanInitData = initData;
   try {
     const params = new URLSearchParams(initData);
-    // အကယ်၍ အထဲမှာ သေချာစစ်ဖို့ ဒေတာတွေ ပါလာခဲ့ရင် ပုံစံတကျ string ပြန်ပြောင်းပေးခြင်း
     if (params.has("user") || params.has("hash")) {
       cleanInitData = params.toString();
     }
@@ -26,74 +25,92 @@ export async function POST(req: NextRequest) {
     console.error("Error formatting initData on Vercel:", e);
   }
 
-  // စနစ်တကျ ညှိပြီးသား cleanInitData ကို သုံးပြီး စစ်ဆေးမယ်
+  // Telegram Signature စစ်ဆေးခြင်း
   const verified = verifyTelegramInitData(cleanInitData, botToken);
-  if (!verified.ok) return NextResponse.json({ error: verified.error }, { status: 401 });
+  if (!verified.ok) {
+    console.error("Telegram verification failed:", verified.error);
+    return NextResponse.json({ error: verified.error }, { status: 401 });
+  }
 
   const tgUser = verified.data.user;
   if (!tgUser?.id) return NextResponse.json({ error: "Missing Telegram user" }, { status: 400 });
 
   const telegramId = String(tgUser.id);
 
-  // Handle referrals (only on first time we see the user)
-  const startParam = verified.data.start_param || "";
-  const referrerId = parseReferrer(startParam);
+  try {
+    // Handle referrals
+    const startParam = verified.data.start_param || "";
+    const referrerId = parseReferrer(startParam);
 
-  const existing = await prisma.user.findUnique({ where: { telegramId } });
+    // 🚀 ပြင်ဆင်ချက် ၁: Prisma database crash ဖြစ်ခြင်းမှ ကာကွယ်ရန်
+    const existing = await prisma.user.findUnique({ where: { telegramId } }).catch(() => null);
 
-  const user = await prisma.user.upsert({
-    where: { telegramId },
-    create: {
-      telegramId,
-      username: tgUser.username,
-      firstName: tgUser.first_name,
-      lastName: tgUser.last_name,
-      photoUrl: tgUser.photo_url,
-      referrerId:
-        !existing && referrerId && referrerId !== telegramId ? referrerId : undefined,
-    },
-    update: {
-      username: tgUser.username,
-      firstName: tgUser.first_name,
-      lastName: tgUser.last_name,
-      photoUrl: tgUser.photo_url,
-    },
-  });
-
-  // If first login with referrer -> credit 1500 to referrer (once per referred user)
-  if (!existing && referrerId && referrerId !== telegramId) {
-    await prisma.$transaction(async (tx) => {
-      const alreadyCredited = await tx.referralCredit.findUnique({
-        where: { referredId: telegramId },
-      });
-      if (alreadyCredited) return;
-
-      await tx.referralCredit.create({
-        data: { referrerId, referredId: telegramId, points: 1500 },
-      });
-
-      await tx.user.update({
-        where: { telegramId: referrerId },
-        data: { points: { increment: 1500 } },
-      });
+    const user = await prisma.user.upsert({
+      where: { telegramId },
+      create: {
+        telegramId,
+        username: tgUser.username || "",
+        firstName: tgUser.first_name || "",
+        lastName: tgUser.last_name || "",
+        photoUrl: tgUser.photo_url || "",
+        referrerId: !existing && referrerId && referrerId !== telegramId ? referrerId : undefined,
+      },
+      update: {
+        username: tgUser.username || "",
+        firstName: tgUser.first_name || "",
+        lastName: tgUser.last_name || "",
+        photoUrl: tgUser.photo_url || "",
+      },
     });
+
+    // Referral Credit ပေးခြင်း
+    if (!existing && referrerId && referrerId !== telegramId) {
+      try {
+        await prisma.$transaction(async (tx) => {
+          const alreadyCredited = await tx.referralCredit.findUnique({
+            where: { referredId: telegramId },
+          });
+          if (alreadyCredited) return;
+
+          await tx.referralCredit.create({
+            data: { referrerId, referredId: telegramId, points: 1500 },
+          });
+
+          await tx.user.update({
+            where: { telegramId: referrerId },
+            data: { points: { increment: 1500 } },
+          });
+        });
+      } catch (refError) {
+        console.error("Referral crediting failed, but skipping to avoid blocking login:", refError);
+      }
+    }
+
+    // 🚀 ပြင်ဆင်ချက် ၂: Session ဆောက်တဲ့နေရာကို စိတ်ချရအောင်လုပ်ခြင်း
+    if (typeof setUserSession === "function") {
+      await setUserSession(telegramId).catch((err) => {
+        console.error("setUserSession logic failed:", err);
+      });
+    }
+
+    return NextResponse.json({
+      ok: true,
+      user: {
+        telegramId: user.telegramId,
+        username: user.username,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        photoUrl: user.photoUrl,
+        points: user.points,
+        reservedPoints: user.reservedPoints,
+        referrerId: user.referrerId,
+      },
+    });
+
+  } catch (dbError: any) {
+    console.error("Database operation failed:", dbError);
+    return NextResponse.json({ error: "Authentication failed internally", details: dbError.message }, { status: 500 });
   }
-
-  await setUserSession(telegramId);
-
-  return NextResponse.json({
-    ok: true,
-    user: {
-      telegramId: user.telegramId,
-      username: user.username,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      photoUrl: user.photoUrl,
-      points: user.points,
-      reservedPoints: user.reservedPoints,
-      referrerId: user.referrerId,
-    },
-  });
 }
 
 function parseReferrer(startParam: string): string | null {
