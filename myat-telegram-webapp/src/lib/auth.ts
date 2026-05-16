@@ -19,10 +19,12 @@ export async function setUserSession(telegramId: string) {
     .sign(getSecret());
 
   const jar = await cookies();
+  
+  // 🚀 Vercel + Telegram Mini App (iframe) အတွက် အကောင်းဆုံး Cookie Configuration
   jar.set(SESSION_COOKIE, token, {
     httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    sameSite: "none", // <iframe> ထဲကနေ Cookie ပေးပို့ခွင့်ပြုရန်
+    secure: true,     // sameSite: "none" သုံးရင် secure က true မဖြစ်မနေ ဖြစ်ရပါမယ်
     path: "/",
     maxAge: 60 * 60 * 24 * 30,
   });
@@ -30,7 +32,12 @@ export async function setUserSession(telegramId: string) {
 
 export async function clearUserSession() {
   const jar = await cookies();
-  jar.set(SESSION_COOKIE, "", { path: "/", maxAge: 0 });
+  jar.set(SESSION_COOKIE, "", { 
+    path: "/", 
+    maxAge: 0,
+    sameSite: "none",
+    secure: true 
+  });
 }
 
 export async function getUserIdFromRequest(req: NextRequest): Promise<string | null> {
@@ -55,8 +62,8 @@ export async function setAdminSession() {
   const jar = await cookies();
   jar.set(ADMIN_COOKIE, token, {
     httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    sameSite: "none",
+    secure: true,
     path: "/",
     maxAge: 60 * 60 * 24 * 7,
   });
@@ -64,7 +71,12 @@ export async function setAdminSession() {
 
 export async function clearAdminSession() {
   const jar = await cookies();
-  jar.set(ADMIN_COOKIE, "", { path: "/", maxAge: 0 });
+  jar.set(ADMIN_COOKIE, "", { 
+    path: "/", 
+    maxAge: 0,
+    sameSite: "none",
+    secure: true 
+  });
 }
 
 export async function isAdminRequest(req: NextRequest) {
@@ -76,5 +88,5 @@ export async function isAdminRequest(req: NextRequest) {
   } catch {
     return false;
   }
-}
-
+    }
+    
