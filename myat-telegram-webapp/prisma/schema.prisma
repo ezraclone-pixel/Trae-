@@ -1,4 +1,4 @@
-generator client {
+model client {
   provider = "prisma-client-js"
 }
 
@@ -24,30 +24,7 @@ enum WithdrawalStatus {
   REJECTED
 }
 
-model User {
-  /// Telegram user id (as string to avoid JS BigInt JSON issues)
-  telegramId String @id
 
-  username  String?
-  firstName String?
-  lastName  String?
-  photoUrl  String?
-
-  points        Int @default(0)
-  reservedPoints Int @default(0)
-
-  referrerId String?
-  referrer   User?  @relation("Referrals", fields: [referrerId], references: [telegramId])
-  referrals  User[] @relation("Referrals")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  taskCompletions TaskCompletion[]
-  orders          Order[]
-  withdrawals     WithdrawalRequest[]
-  referralCredits ReferralCredit[] @relation("ReferrerCredits")
-}
 
 model TaskCompletion {
   id        String   @id @default(cuid())
@@ -58,7 +35,37 @@ model TaskCompletion {
   taskKey   String
 
   /// Use a concrete periodKey for uniqueness:
-  /// - "once" for one-time tasks
+  /// - "once" for one-one-model User {
+  /// Telegram user id (as string to avoid JS BigInt JSON issues)
+  telegramId String @id @map("telegramId")
+
+  username  String?
+  
+  // 🚀 [အဓိကပြင်ဆင်ချက်] Supabase ထဲက Snake Case Column တွေနဲ့ ကွက်တိ ချိတ်ဆက်ပေးခြင်း
+  firstName String? @map("first_name")
+  lastName  String? @map("last_name")
+  photoUrl  String? @map("photo_url")
+
+  points        Int @default(0)
+  reservedPoints Int @default(0) @map("reservedPoints")
+
+  referrerId String? @map("referrerId")
+  referrer   User?   @relation("Referrals", fields: [referrerId], references: [telegramId])
+  referrals  User[]  @relation("Referrals")
+
+  // 🔄 Database ရဲ့ Table Column တွေနဲ့ သေချာကိုက်အောင် တိုက်ရိုက် Map လုပ်ခြင်း
+  createdAt DateTime @default(now()) @map("createdAt")
+  updatedAt DateTime @updatedAt @map("updatedAt")
+
+  taskCompletions TaskCompletion[]
+  orders          Order[]
+  withdrawals     WithdrawalRequest[]
+  referralCredits ReferralCredit[] @relation("ReferrerCredits")
+
+  // Supabase ထဲက "User" ဆိုတဲ့ Table နာမည်ကြီးနဲ့ ကွက်တိ ကိုက်ညီစေရန်
+  @@map("User")
+}
+timeks
   /// - e.g. "2026-05-15@12" for daily-reset-at-12pm tasks
   periodKey String
 
