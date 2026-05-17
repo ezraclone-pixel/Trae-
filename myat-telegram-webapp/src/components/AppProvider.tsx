@@ -2,7 +2,8 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 
-Type MeResponse = {
+//  Type ကို စာလုံးအသေး 'type' လို့ ပြင်ဆင်ပေးထားပါတယ်
+type MeResponse = {
   telegramId?: string;
   user: {
     telegramId: string;
@@ -207,4 +208,4 @@ export function useApp() {
   if (!ctx) throw new Error("useApp must be used within AppProvider");
   return ctx;
   }
-    
+                              
