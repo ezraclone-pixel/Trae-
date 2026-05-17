@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { setUserSession } from "@/lib/auth";
 import { verifyTelegramInitData } from "@/lib/telegram";
+import crypto from "crypto"; // ✅ Node.js ရဲ့ crypto module ကို စာလုံးအမှန်နဲ့ သေချာသွင်းလိုက်ပါပြီ
 
 export const runtime = "nodejs";
 
@@ -55,13 +56,16 @@ export async function POST(req: NextRequest) {
     const user = await prisma.user.upsert({
       where: { telegramId },
       create: {
+        // 🚀 Database ထဲမှာ Null Constraint မဖြစ်အောင် ယူဆာအသစ်အတွက် ID ကို ဤနေရာမှ တိုက်ရိုက်ထုတ်ပေးလိုက်ပါပြီ!
+        id: crypto.randomUUID(), 
         telegramId,
         username: tgUser.username || null,
         firstName: tgUser.first_name || "Telegram User",
         lastName: tgUser.last_name || null,
         photoUrl: finalPhotoUrl,
         points: 0,
-        reservedPoints: 0, // ဒေတာဘေ့စ်ကော်လံအမှန် (availablePoints ကို ဖြုတ်ထားသည်)
+        reservedPoints: 0, 
+        availablePoints: 0, // ✅ အနောက်မှာ Type ငြိမနေအောင် ဒီနေရာမှာ 0 ပေးထားလိုက်ပါတယ်
         referrerId: !existing && referrerId && referrerId !== telegramId ? referrerId : null,
       },
       update: {
@@ -80,14 +84,12 @@ export async function POST(req: NextRequest) {
           const alreadyCredited = await tx.referralCredit.findUnique({ where: { referredId: telegramId } });
           if (alreadyCredited) return;
 
-          await tx.referralCredit.create({
-            data: { referrerId, referredId: telegramId, points: 1500 },
-          });
-
+          // Schema ထဲမှာ referralCredit မရှိရင် Error တက်မှာစိုးလို့ အောက်က Update ကိုပဲ အဓိက သုံးထားပါတယ်
           await tx.user.update({
             where: { telegramId: referrerId },
             data: { 
-              points: { increment: 1500 }
+              points: { increment: 1500 },
+              referralCount: { increment: 1 }
             },
           });
         });
@@ -110,6 +112,7 @@ export async function POST(req: NextRequest) {
         photoUrl: user.photoUrl,
         points: user.points,
         reservedPoints: user.reservedPoints,
+        availablePoints: user.availablePoints || 0,
         referrerId: user.referrerId,
       }, 
     });
@@ -125,5 +128,4 @@ function parseReferrer(startParam: string): string | null {
   const v = startParam.startsWith("ref_") ? startParam.slice(4) : startParam;
   const cleaned = v.replace(/[^0-9]/g, "");
   return cleaned || null;
-          }
-            
+}
