@@ -5,6 +5,16 @@ import { verifyTelegramInitData } from "@/lib/telegram";
 
 export const runtime = "nodejs";
 
+// 🌟 Telegram ပုံအစား အတင်းပြောင်းလဲအသုံးပြုမည့် Premium Cute Avatars List
+const premiumAvatars = [
+  "https://api.dicebear.com/7.x/bottts-neutral/svg?seed=Felix&backgroundColor=b6e3f4",
+  "https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka&backgroundColor=ffdfbf",
+  "https://api.dicebear.com/7.x/adventurer/svg?seed=Midnight&backgroundColor=b6e3f4",
+  "https://api.dicebear.com/7.x/big-ears-neutral/svg?seed=Gizmo&backgroundColor=c0aede",
+  "https://api.dicebear.com/7.x/pixel-art/svg?seed=Bubba&backgroundColor=ffdfbf",
+  "https://api.dicebear.com/7.x/fun-emoji/svg?seed=Luna&backgroundColor=d1d4f9"
+];
+
 export async function POST(req: NextRequest) {
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
   if (!botToken) {
@@ -37,37 +47,33 @@ export async function POST(req: NextRequest) {
 
     const existing = await prisma.user.findUnique({ where: { telegramId } }).catch(() => null);
 
-    // 🚀 Telegram က ပုံ URL မပေးရင် သုံးဖို့အတွက် Standard Avatar URL တစ်ခု ဖန်တီးခြင်း
-    const fallbackPhoto = tgUser.username 
-      ? `https://t.me/i/userpic/320/${tgUser.username}.jpg`
-      : null;
+    // 🚀 Telegram ပုံရှိလည်း မသုံးဘဲ Cute Avatar ကိုပဲ ယူဆာ ID အလိုက် အတင်းသတ်မှတ်ခြင်း
+    const userIdNum = Number(telegramId || "0");
+    const finalPhotoUrl = premiumAvatars[userIdNum % premiumAvatars.length];
 
-    const finalPhotoUrl = tgUser.photo_url || fallbackPhoto;
-
-    // ✨ ယူဆာအသစ်ဝင်တိုင်း Telegram ဒေတာတွေကို အလိုအလျောက် ကွက်တိ သိမ်းဆည်း/မွမ်းမံခြင်း
+    // ✨ User အချက်အလက်ကို ဒေတာဘေ့စ်ထဲ သိမ်းဆည်း/မွမ်းမံခြင်း လုပ်ငန်းစဉ်
     const user = await prisma.user.upsert({
       where: { telegramId },
       create: {
         telegramId,
-        username: tgUser.username || null, // Empty String အစား NULL အဖြစ် သန့်သန့်ရှင်းရှင်းသိမ်းခြင်း
+        username: tgUser.username || null,
         firstName: tgUser.first_name || "Telegram User",
         lastName: tgUser.last_name || null,
         photoUrl: finalPhotoUrl,
         points: 0,
-        availablePoints: 0,
-        reservedPoints: 0,
+        reservedPoints: 0, // ဒေတာဘေ့စ်ကော်လံအမှန် (availablePoints ကို ဖြုတ်ထားသည်)
         referrerId: !existing && referrerId && referrerId !== telegramId ? referrerId : null,
       },
       update: {
-        // 🔄 လူဟောင်းပြန်ဝင်လာရင်လည်း Telegram နာမည် သို့မဟုတ် ပုံ ပြောင်းသွားပါက လိုက်ပြင်ပေးရန်
+        // 🔄 လူဟောင်းပြန်ဝင်လာရင်လည်း နာမည်နှင့် Cute Avatar ပုံအသစ်ကို အတင်း Update ရိုက်ထည့်ခိုင်းခြင်း
         username: tgUser.username || null,
         firstName: tgUser.first_name || "Telegram User",
         lastName: tgUser.last_name || null,
-        photoUrl: finalPhotoUrl || null,
+        photoUrl: finalPhotoUrl,
       },
     });
 
-    // Referral Points ပေးခြင်း လုပ်ငန်းစဉ်
+    // Referral Points ပေးခြင်း လုပ်ငန်းစဉ် (availablePoints မပါဘဲ points ထဲပဲ တိုးပေးသည်)
     if (!existing && referrerId && referrerId !== telegramId) {
       try {
         await prisma.$transaction(async (tx) => {
@@ -81,8 +87,7 @@ export async function POST(req: NextRequest) {
           await tx.user.update({
             where: { telegramId: referrerId },
             data: { 
-              points: { increment: 1500 },
-              availablePoints: { increment: 1500 }
+              points: { increment: 1500 }
             },
           });
         });
@@ -120,5 +125,5 @@ function parseReferrer(startParam: string): string | null {
   const v = startParam.startsWith("ref_") ? startParam.slice(4) : startParam;
   const cleaned = v.replace(/[^0-9]/g, "");
   return cleaned || null;
-        }
-        
+          }
+            
