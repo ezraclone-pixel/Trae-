@@ -5,7 +5,7 @@ import { verifyTelegramInitData } from "@/lib/telegram";
 
 export const runtime = "nodejs";
 
-// 🌟 Telegram ပုံအစား အတင်းပြောင်းလဲအသုံးပြုမည့် Premium Cute Avatars List
+// 🌟 Premium Cute Avatars List
 const premiumAvatars = [
   "https://api.dicebear.com/7.x/bottts-neutral/svg?seed=Felix&backgroundColor=b6e3f4",
   "https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka&backgroundColor=ffdfbf",
@@ -47,15 +47,14 @@ export async function POST(req: NextRequest) {
 
     const existing = await prisma.user.findUnique({ where: { telegramId } }).catch(() => null);
 
-    // 🚀 Telegram ပုံရှိလည်း မသုံးဘဲ Cute Avatar ကိုပဲ ယူဆာ ID အလိုက် အတင်းသတ်မှတ်ခြင်း
+    // 🚀 Premium Cute Avatar တွက်ချက်ခြင်း
     const userIdNum = Number(telegramId || "0");
     const finalPhotoUrl = premiumAvatars[userIdNum % premiumAvatars.length];
 
-    // ✨ User အချက်အလက်ကို ဒေတာဘေ့စ်ထဲ သိမ်းဆည်း/မွမ်းမံခြင်း လုပ်ငန်းစဉ်
+    // ✨ Schema အသစ်အတိုင်း 'id' မပါဘဲ telegramId ကို Primary Key အဖြစ် ကွက်တိ သုံးထားပါတယ်
     const user = await prisma.user.upsert({
       where: { telegramId },
       create: {
-        // 🚀 Prisma build error မတက်အောင် ကန့်သတ်ချက်ရှိတဲ့ 'id' field ကိုဖြုတ်ပြီး telegramId ကိုပဲ အဓိကသုံးခိုင်းလိုက်ပါပြီ
         telegramId,
         username: tgUser.username || null,
         firstName: tgUser.first_name || "Telegram User",
@@ -63,11 +62,9 @@ export async function POST(req: NextRequest) {
         photoUrl: finalPhotoUrl,
         points: 0,
         reservedPoints: 0, 
-        availablePoints: 0, 
         referrerId: !existing && referrerId && referrerId !== telegramId ? referrerId : null,
       },
       update: {
-        // 🔄 လူဟောင်းပြန်ဝင်လာရင်လည်း နာမည်နှင့် Cute Avatar ပုံအသစ်ကို အတင်း Update ရိုက်ထည့်ခိုင်းခြင်း
         username: tgUser.username || null,
         firstName: tgUser.first_name || "Telegram User",
         lastName: tgUser.last_name || null,
@@ -75,17 +72,25 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Referral Points ပေးခြင်း လုပ်ငန်းစဉ်
+    // 👥 Referral လုပ်ငန်းစဉ် (Schema အသစ်ထဲက ReferralCredit model အတိုင်း ကွက်တိ ပြင်ထားပါတယ်)
     if (!existing && referrerId && referrerId !== telegramId) {
       try {
         await prisma.$transaction(async (tx) => {
-          await tx.user.update({
-            where: { telegramId: referrerId },
-            data: { 
-              points: { increment: 1500 },
-              referralCount: { increment: 1 }
-            },
-          });
+          // တကယ်လို့ database ထဲမှာ referrer တကယ်ရှိမှ Point တိုးပေးမယ်
+          const refUser = await tx.user.findUnique({ where: { telegramId: referrerId } });
+          if (refUser) {
+            const alreadyCredited = await tx.referralCredit.findUnique({ where: { referredId: telegramId } });
+            if (!alreadyCredited) {
+              await tx.referralCredit.create({
+                data: { referrerId, referredId: telegramId, points: 1500 },
+              });
+
+              await tx.user.update({
+                where: { telegramId: referrerId },
+                data: { points: { increment: 1500 } },
+              });
+            }
+          }
         });
       } catch (refError) {
         console.error("Referral transaction skipped:", refError);
@@ -106,7 +111,6 @@ export async function POST(req: NextRequest) {
         photoUrl: user.photoUrl,
         points: user.points,
         reservedPoints: user.reservedPoints,
-        availablePoints: user.availablePoints || 0,
         referrerId: user.referrerId,
       }, 
     });
@@ -122,5 +126,4 @@ function parseReferrer(startParam: string): string | null {
   const v = startParam.startsWith("ref_") ? startParam.slice(4) : startParam;
   const cleaned = v.replace(/[^0-9]/g, "");
   return cleaned || null;
-      }
-          
+}
