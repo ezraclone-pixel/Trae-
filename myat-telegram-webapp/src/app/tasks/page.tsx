@@ -12,26 +12,26 @@ export default function TasksPage() {
 
   return (
     <AppShell title="Tasks">
-      <div className="app-container pb-24 space-y-3.5">
+      <div className="app-container pb-24 space-y-4">
         
         {/* Banner: Make your tasks */}
         <InfoCard />
 
-        {/* 📅 Task 1: Daily Login (Open ခလုတ်မပါဘဲ Claim သီးသန့် + Inline Right Button) */}
-        <div className="stats-card relative overflow-hidden group transition-all duration-300 hover:border-indigo-500/20 py-3.5 px-4">
-          <div className="w-full flex items-center justify-between gap-3">
-            <div className="flex-1">
-              <div className="text-sm font-bold text-white tracking-wide flex items-center gap-1.5">
+        {/* 📅 Task 1: Daily Login (Open ခလုတ်မပါ၊ စာအပြည့်ပေါ်ပြီး ညာဘက်မှာ Claim ခလုတ်) */}
+        <div className="stats-card relative overflow-hidden group transition-all duration-300 hover:border-indigo-500/20 py-4 px-4">
+          <div className="w-full flex items-center justify-between gap-4">
+            <div>
+              <div className="text-sm font-bold text-white tracking-wide">
                 📅 Daily login
               </div>
-              <div className="text-[11px] font-bold font-mono text-cyan-400 mt-1 drop-shadow-[0_0_6px_rgba(6,182,212,0.3)]">
+              <div className="text-[11px] font-bold font-mono text-cyan-400 mt-1.5 drop-shadow-[0_0_6px_rgba(6,182,212,0.3)]">
                 +500 PTS
               </div>
             </div>
             
-            {/* Right Side Action */}
+            {/* Right Side Claim Button */}
             <button
-              className={`py-2 px-5 rounded-xl text-xs font-black transition-all shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] ${
+              className={`py-2.5 px-5 rounded-xl text-xs font-black transition-all shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] ${
                 !!tasks?.daily_login
                   ? "bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 cursor-not-allowed opacity-80"
                   : "bg-indigo-600 hover:bg-indigo-500 text-white active:scale-[0.96] shadow-md shadow-indigo-600/20"
@@ -44,7 +44,7 @@ export default function TasksPage() {
           </div>
         </div>
 
-        {/* 📢 Task 2: Follow Main Channel (Inline Split Open/Verify Buttons on Right) */}
+        {/* 📢 Task 2: Follow Main Channel (စာသား အပြည့်ပေါ်မည့် Layout) */}
         <TaskCard
           title={`Follow main channel (${mainChannel})`}
           points="+1000 pts"
@@ -55,7 +55,7 @@ export default function TasksPage() {
           once
         />
 
-        {/* 💬 Task 3: Join Community (Inline Split Open/Verify Buttons on Right) */}
+        {/* 💬 Task 3: Join Community (စာသား အပြည့်ပေါ်မည့် Layout) */}
         <TaskCard
           title={`Join community (${communityGroup})`}
           points="+1000 pts"
@@ -65,24 +65,6 @@ export default function TasksPage() {
           actionLabel={tasks?.join_group ? "Verified ✓" : "Verify"}
           once
         />
-
-        {/* 👥 Card 4: Referral Info Banner */}
-        <div className="stats-card relative overflow-hidden group border-l-2 border-l-indigo-500/40 py-3.5 px-4">
-          <div className="absolute -left-16 -bottom-16 h-32 w-32 rounded-full bg-indigo-500/5 blur-xl pointer-events-none" />
-          <div className="w-full flex items-center justify-between gap-3">
-            <div>
-              <div className="text-sm font-bold text-white flex items-center gap-1.5">
-                👥 Referral Multiplier
-              </div>
-              <div className="mt-1 text-xs text-zinc-400 leading-relaxed">
-                Referral တစ်ယောက်စီ <span className="text-cyan-400 font-bold font-mono">+1,500 PTS</span> (Unlimited)
-              </div>
-            </div>
-            <span className="text-[9px] font-black font-mono text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-md uppercase whitespace-nowrap">
-              Unlimited
-            </span>
-          </div>
-        </div>
 
       </div>
     </AppShell>
@@ -106,7 +88,7 @@ function InfoCard() {
   );
 }
 
-// 📦 Premium Inline Reusable Task Card Component
+// 📦 Reusable Task Card Component (စာမကွက်ဘဲ Premium ဖြစ်စေမည့် ဘေးတိုက်ခလုတ်ပုံစံအသစ်)
 function TaskCard({
   title,
   points,
@@ -125,31 +107,31 @@ function TaskCard({
   once?: boolean;
 }) {
   return (
-    <div className="stats-card relative overflow-hidden group transition-all duration-300 hover:border-indigo-500/20 py-3.5 px-4">
-      <div className="w-full flex items-center justify-between gap-4">
+    <div className="stats-card relative overflow-hidden group transition-all duration-300 hover:border-indigo-500/20 py-4 px-4">
+      <div className="w-full flex flex-col gap-4">
         
-        {/* Left Side: Info Elements */}
-        <div className="flex-1 min-w-0">
-          <div className="text-sm font-bold text-white tracking-wide truncate">
+        {/* Top: Title & PTS Badge (ဘယ်/ညာ ခွဲထားလို့ စာလုံးလုံးဝ မကျုံ့တော့ပါ) */}
+        <div className="flex justify-between items-start gap-3">
+          <div className="text-sm font-bold text-white tracking-wide leading-snug break-words max-w-[70%]">
             {title.startsWith("Daily") ? "📅 " : title.startsWith("Follow") ? "📢 " : "💬 "}
             {title}
           </div>
-          <div className="flex items-center gap-2 mt-1.5">
-            <span className="text-[11px] font-bold font-mono text-cyan-400 drop-shadow-[0_0_6px_rgba(6,182,212,0.3)]">
+          <div className="flex flex-col items-end gap-1.5 shrink-0">
+            <span className="text-xs font-black font-mono text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-0.5 rounded-lg shadow-[0_0_12px_rgba(6,182,212,0.1)]">
               {points.toUpperCase()}
             </span>
             {once && (
-              <span className="text-[9px] text-zinc-500 font-semibold border border-zinc-800/60 px-1.5 py-0.2 rounded uppercase tracking-wide">
+              <span className="text-[9px] text-zinc-500 font-bold border border-zinc-800/80 px-1.5 py-0.2 rounded uppercase tracking-wider">
                 Once
               </span>
             )}
           </div>
         </div>
 
-        {/* Right Side: Inline Action Buttons Group */}
-        <div className="flex items-center gap-2 shrink-0">
+        {/* Bottom: Action Buttons (စာသားအောက်မှာ ဘေးချင်းယှဉ် Grid Layout နဲ့ သပ်ရပ်သွားစေရန်) */}
+        <div className="grid grid-cols-2 gap-2.5">
           <button
-            className="py-2 px-3.5 rounded-xl border border-white/5 bg-white/5 text-xs font-bold text-zinc-300 hover:bg-white/10 active:scale-[0.96] transition-all disabled:opacity-20 disabled:cursor-not-allowed"
+            className="w-full py-2.5 rounded-xl border border-white/5 bg-white/5 text-xs font-bold text-zinc-300 hover:bg-white/10 active:scale-[0.97] transition-all disabled:opacity-20 disabled:cursor-not-allowed"
             disabled={!onOpen}
             onClick={onOpen}
           >
@@ -157,10 +139,10 @@ function TaskCard({
           </button>
           
           <button
-            className={`py-2 px-4 rounded-xl text-xs font-black transition-all min-w-[80px] text-center shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] ${
+            className={`w-full py-2.5 rounded-xl text-xs font-black transition-all text-center shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] ${
               done
                 ? "bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 cursor-not-allowed opacity-80"
-                : "bg-indigo-600 hover:bg-indigo-500 text-white active:scale-[0.96] shadow-md shadow-indigo-600/10"
+                : "bg-indigo-600 hover:bg-indigo-500 text-white active:scale-[0.97] shadow-md shadow-indigo-600/10"
             }`}
             disabled={done}
             onClick={() => onAction().catch(() => {})}
@@ -172,4 +154,4 @@ function TaskCard({
       </div>
     </div>
   );
-}
+              }
