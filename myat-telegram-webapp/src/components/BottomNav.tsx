@@ -14,8 +14,8 @@ const items = [
 export function BottomNav() {
   const path = usePathname();
   return (
-    // 🌌 [UI ပြင်ဆင်ချက်] Floating Glassmorphism Look သို့ ပြောင်းလဲခြင်း
-    <nav className="fixed bottom-6 left-5 right-5 z-99 mx-auto max-w-[440px] rounded-3xl border border-white/5 border-t-white/10 bg-[#0a0b12]/70 p-1.5 shadow-[0_20px_50px_rgba(0,0,0,0.6),0_0_30px_rgba(99,102,241,0.05)] backdrop-blur-2xl">
+    // 🌌 [FIXED] z-99 ကို z-[99] (သို့မဟုတ် z-50) လို့ အမှန်ပြင်လိုက်လို့ ဘယ် Page ရောက်ရောက် လုံးဝ မပျောက်တော့ပါဘူးဗျာ!
+    <nav className="fixed bottom-6 left-5 right-5 z-[99] mx-auto max-w-[440px] rounded-3xl border border-white/5 border-t-white/10 bg-[#0a0b12]/70 p-1.5 shadow-[0_20px_50px_rgba(0,0,0,0.6),0_0_30px_rgba(99,102,241,0.05)] backdrop-blur-2xl transform-gpu">
       <div className="flex justify-around items-center w-full">
         {items.map((it) => {
           const active = path === it.href;
@@ -106,4 +106,5 @@ function UserIcon({ active }: { active: boolean }) {
       <path d="M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" strokeWidth="1.8" />
     </svg>
   );
-}
+                  }
+            
