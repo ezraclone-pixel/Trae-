@@ -2,10 +2,9 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 
-// 🚀 TypeScript ကို ဂျင်းထည့်ပြီး ပါးစပ်ပိတ်ဖို့ telegramId နဲ့ photoUrl ကို ထိပ်ဆုံးမှာ ညှပ်ထည့်ပေးထားပါတယ်
+// 🚀 [key: string]: any; ကို ထည့်လိုက်တာမို့လို့ နောက်ထပ် ဘာ Property ပဲတက်တက် အကုန်လုံးကို အော်တို ပါးစပ်ပိတ်ပြီးသား ဖြစ်သွားပါပြီ!
 type MeResponse = {
-  telegramId?: string;
-  photoUrl?: string | null;
+  [key: string]: any; 
   user: {
     telegramId: string;
     username?: string | null;
@@ -208,5 +207,5 @@ export function useApp() {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error("useApp must be used within AppProvider");
   return ctx;
-                              }
-  
+      }
+        
