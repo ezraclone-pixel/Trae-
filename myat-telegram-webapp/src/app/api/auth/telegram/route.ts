@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { setUserSession } from "@/lib/auth";
 import { verifyTelegramInitData } from "@/lib/telegram";
-import crypto from "crypto"; // ✅ Node.js ရဲ့ crypto module ကို စာလုံးအမှန်နဲ့ သေချာသွင်းလိုက်ပါပြီ
 
 export const runtime = "nodejs";
 
@@ -56,8 +55,7 @@ export async function POST(req: NextRequest) {
     const user = await prisma.user.upsert({
       where: { telegramId },
       create: {
-        // 🚀 Database ထဲမှာ Null Constraint မဖြစ်အောင် ယူဆာအသစ်အတွက် ID ကို ဤနေရာမှ တိုက်ရိုက်ထုတ်ပေးလိုက်ပါပြီ!
-        id: crypto.randomUUID(), 
+        // 🚀 Prisma build error မတက်အောင် ကန့်သတ်ချက်ရှိတဲ့ 'id' field ကိုဖြုတ်ပြီး telegramId ကိုပဲ အဓိကသုံးခိုင်းလိုက်ပါပြီ
         telegramId,
         username: tgUser.username || null,
         firstName: tgUser.first_name || "Telegram User",
@@ -65,7 +63,7 @@ export async function POST(req: NextRequest) {
         photoUrl: finalPhotoUrl,
         points: 0,
         reservedPoints: 0, 
-        availablePoints: 0, // ✅ အနောက်မှာ Type ငြိမနေအောင် ဒီနေရာမှာ 0 ပေးထားလိုက်ပါတယ်
+        availablePoints: 0, 
         referrerId: !existing && referrerId && referrerId !== telegramId ? referrerId : null,
       },
       update: {
@@ -77,14 +75,10 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Referral Points ပေးခြင်း လုပ်ငန်းစဉ် (availablePoints မပါဘဲ points ထဲပဲ တိုးပေးသည်)
+    // Referral Points ပေးခြင်း လုပ်ငန်းစဉ်
     if (!existing && referrerId && referrerId !== telegramId) {
       try {
         await prisma.$transaction(async (tx) => {
-          const alreadyCredited = await tx.referralCredit.findUnique({ where: { referredId: telegramId } });
-          if (alreadyCredited) return;
-
-          // Schema ထဲမှာ referralCredit မရှိရင် Error တက်မှာစိုးလို့ အောက်က Update ကိုပဲ အဓိက သုံးထားပါတယ်
           await tx.user.update({
             where: { telegramId: referrerId },
             data: { 
@@ -128,4 +122,5 @@ function parseReferrer(startParam: string): string | null {
   const v = startParam.startsWith("ref_") ? startParam.slice(4) : startParam;
   const cleaned = v.replace(/[^0-9]/g, "");
   return cleaned || null;
-}
+      }
+          
