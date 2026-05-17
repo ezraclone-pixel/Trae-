@@ -1,4 +1,4 @@
-return { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { setUserSession } from "@/lib/auth";
 import { verifyTelegramInitData } from "@/lib/telegram";
