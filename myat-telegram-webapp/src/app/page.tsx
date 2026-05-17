@@ -6,12 +6,14 @@ import { useState } from "react";
 
 export default function HomePage() {
   const { me } = useApp();
-  const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME;
+  //  Vercel Setting ထဲက နာမည်အမှန်အတိုင်း ပြင်လိုက်ပါတယ်
+  const botUsername = process.env.NEXT_PUBLIC_BOT_USERNAME || process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME;
   const [copied, setCopied] = useState(false);
 
+  // 🚀 me?.telegramId ရော me?.user?.telegramId ရော နှစ်ခုလုံးကို any ခံပြီး ဇွတ်ဖတ်ခိုင်းလိုက်တာပါ
   const referralLink =
     me && botUsername
-      ? `https://t.me/${botUsername}?start=ref_${me.user.telegramId}`
+      ? `https://t.me/${botUsername}?start=ref_${(me as any)?.user?.telegramId || (me as any)?.telegramId || ""}`
       : null;
 
   const handleCopy = async () => {
@@ -41,12 +43,12 @@ export default function HomePage() {
             <div className="mt-5 flex justify-around border-t border-white/5 pt-4">
               <div className="stat-item">
                 <span className="label">Points</span>
-                <span className="value">{me ? String(me.user.points) : "—"}</span>
+                <span className="value">{me ? String((me as any).user?.points ?? (me as any).points ?? 0) : "—"}</span>
               </div>
               <div className="stat-divider"></div>
               <div className="stat-item">
                 <span className="label">Referrals</span>
-                <span className="value">{me ? String(me.user.referralCount) : "—"}</span>
+                <span className="value">{me ? String((me as any).user?.referralCount ?? (me as any).referralCount ?? 0) : "—"}</span>
               </div>
             </div>
           </div>
@@ -104,4 +106,5 @@ export default function HomePage() {
       </div>
     </AppShell>
   );
-                }
+        }
+      
