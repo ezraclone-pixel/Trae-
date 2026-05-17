@@ -3,7 +3,7 @@
 import { AppShell } from "@/components/AppShell";
 import { useApp } from "@/components/AppProvider";
 
-// 🌟 Premium Cute Avatars List (DiceBear API သုံးပြီး Premium ဆန်တဲ့ ရုပ်လေးတွေ ပြပေးထားပါတယ်)
+// 🌟 Premium Cute Avatars List
 const premiumAvatars = [
   "https://api.dicebear.com/7.x/bottts-neutral/svg?seed=Felix&backgroundColor=b6e3f4",
   "https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka&backgroundColor=ffdfbf",
@@ -16,12 +16,15 @@ const premiumAvatars = [
 export default function ProfilePage() {
   const { me } = useApp();
 
+  // 🚀 API က user: { ... } ပုံစံနဲ့ ပို့တာရော၊ တိုက်ရိုက်ပုံစံရော နှစ်မျိုးလုံး မိအောင် ဖမ်းလိုက်တာပါဗျာ
+  const userData = me?.user || me;
+
   // 🚀 User ရဲ့ Telegram ID နောက်ဆုံးဂဏန်းပေါ်မူတည်ပြီး တစ်ယောက်ကို တစ်ခုနှုန်း ခွဲပေးမည့် Logic
-  const userIdNum = Number(me?.telegramId || "0");
+  const userIdNum = Number(userData?.telegramId || "0");
   const randomAvatar = premiumAvatars[userIdNum % premiumAvatars.length];
 
   // 📸 Telegram PhotoUrl မရှိရင် အပေါ်က Cute Avatar ကို ပြောင်းသုံးပေးမည့်အဆင့်
-  const finalProfilePic = me?.photoUrl || randomAvatar;
+  const finalProfilePic = userData?.photoUrl || randomAvatar;
 
   return (
     <AppShell title="Profile">
@@ -42,10 +45,10 @@ export default function ProfilePage() {
           {/* User Info အပိုင်း */}
           <div>
             <div className="text-base font-bold text-zinc-900 dark:text-zinc-50">
-              {me?.username || me?.firstName || me?.telegramId || "User"}
+              {userData?.username || userData?.firstName || userData?.telegramId || "User"}
             </div>
             <div className="text-xs text-zinc-500 dark:text-zinc-400">
-              ID: {me?.telegramId || "N/A"}
+              ID: {userData?.telegramId || "N/A"}
             </div>
           </div>
         </div>
@@ -54,15 +57,15 @@ export default function ProfilePage() {
         <div className="grid grid-cols-3 gap-2">
           <div className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-zinc-200 dark:bg-zinc-950 dark:ring-zinc-800">
             <div className="text-[10px] text-zinc-500">Points</div>
-            <div className="text-sm font-bold mt-1">{me?.points || 0}</div>
+            <div className="text-sm font-bold mt-1">{userData?.points || 0}</div>
           </div>
           <div className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-zinc-200 dark:bg-zinc-950 dark:ring-zinc-800">
             <div className="text-[10px] text-zinc-500">Available</div>
-            <div className="text-sm font-bold mt-1">{(me?.points || 0) - (me?.reservedPoints || 0)}</div>
+            <div className="text-sm font-bold mt-1">{(userData?.points || 0) - (userData?.reservedPoints || 0)}</div>
           </div>
           <div className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-zinc-200 dark:bg-zinc-950 dark:ring-zinc-800">
             <div className="text-[10px] text-zinc-500">Reserved</div>
-            <div className="text-sm font-bold mt-1">{me?.reservedPoints || 0}</div>
+            <div className="text-sm font-bold mt-1">{userData?.reservedPoints || 0}</div>
           </div>
         </div>
 
@@ -82,4 +85,4 @@ export default function ProfilePage() {
       </div>
     </AppShell>
   );
-            }
+}
