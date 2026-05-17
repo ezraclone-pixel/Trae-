@@ -12,21 +12,39 @@ export default function TasksPage() {
 
   return (
     <AppShell title="Tasks">
-      <div className="app-container pb-24 space-y-4">
+      <div className="app-container pb-24 space-y-3.5">
         
-        {/* Banner: Make your tasks (Glow Effects) */}
+        {/* Banner: Make your tasks */}
         <InfoCard />
 
-        {/* Task 1: Daily Login */}
-        <TaskCard
-          title="Daily login"
-          points="+500 pts"
-          done={!!tasks?.daily_login}
-          onAction={() => completeTask("daily_login")}
-          actionLabel={tasks?.daily_login ? "Claimed ✓" : "Claim"}
-        />
+        {/* 📅 Task 1: Daily Login (Open ခလုတ်မပါဘဲ Claim သီးသန့် + Inline Right Button) */}
+        <div className="stats-card relative overflow-hidden group transition-all duration-300 hover:border-indigo-500/20 py-3.5 px-4">
+          <div className="w-full flex items-center justify-between gap-3">
+            <div className="flex-1">
+              <div className="text-sm font-bold text-white tracking-wide flex items-center gap-1.5">
+                📅 Daily login
+              </div>
+              <div className="text-[11px] font-bold font-mono text-cyan-400 mt-1 drop-shadow-[0_0_6px_rgba(6,182,212,0.3)]">
+                +500 PTS
+              </div>
+            </div>
+            
+            {/* Right Side Action */}
+            <button
+              className={`py-2 px-5 rounded-xl text-xs font-black transition-all shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] ${
+                !!tasks?.daily_login
+                  ? "bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 cursor-not-allowed opacity-80"
+                  : "bg-indigo-600 hover:bg-indigo-500 text-white active:scale-[0.96] shadow-md shadow-indigo-600/20"
+              }`}
+              disabled={!!tasks?.daily_login}
+              onClick={() => completeTask("daily_login")}
+            >
+              {(tasks?.daily_login ? "Claimed ✓" : "Claim").toUpperCase()}
+            </button>
+          </div>
+        </div>
 
-        {/* Task 2: Follow Main Channel */}
+        {/* 📢 Task 2: Follow Main Channel (Inline Split Open/Verify Buttons on Right) */}
         <TaskCard
           title={`Follow main channel (${mainChannel})`}
           points="+1000 pts"
@@ -37,7 +55,7 @@ export default function TasksPage() {
           once
         />
 
-        {/* Task 3: Join Community */}
+        {/* 💬 Task 3: Join Community (Inline Split Open/Verify Buttons on Right) */}
         <TaskCard
           title={`Join community (${communityGroup})`}
           points="+1000 pts"
@@ -48,21 +66,21 @@ export default function TasksPage() {
           once
         />
 
-        {/* Card 4: Referral Info Banner */}
-        <div className="stats-card relative overflow-hidden group border-l-2 border-l-indigo-500/40">
+        {/* 👥 Card 4: Referral Info Banner */}
+        <div className="stats-card relative overflow-hidden group border-l-2 border-l-indigo-500/40 py-3.5 px-4">
           <div className="absolute -left-16 -bottom-16 h-32 w-32 rounded-full bg-indigo-500/5 blur-xl pointer-events-none" />
-          <div className="w-full">
-            <div className="flex justify-between items-center">
+          <div className="w-full flex items-center justify-between gap-3">
+            <div>
               <div className="text-sm font-bold text-white flex items-center gap-1.5">
                 👥 Referral Multiplier
               </div>
-              <span className="text-[10px] font-black font-mono text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-0.5 rounded-lg uppercase">
-                Unlimited
-              </span>
+              <div className="mt-1 text-xs text-zinc-400 leading-relaxed">
+                Referral တစ်ယောက်စီ <span className="text-cyan-400 font-bold font-mono">+1,500 PTS</span> (Unlimited)
+              </div>
             </div>
-            <div className="mt-2 text-xs leading-relaxed text-zinc-400">
-              Referral တစ်ယောက်စီ <span className="text-cyan-400 font-bold font-mono">+1,500 PTS</span> စီ အကန့်အသတ်မရှိ တိုးပွားရယူနိုင်ပါသည်။
-            </div>
+            <span className="text-[9px] font-black font-mono text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-md uppercase whitespace-nowrap">
+              Unlimited
+            </span>
           </div>
         </div>
 
@@ -71,24 +89,24 @@ export default function TasksPage() {
   );
 }
 
-// 🚀 Info Banner Component (Premium Ambient Light)
+// 🚀 Top Info Banner Component
 function InfoCard() {
   return (
-    <div className="stats-card relative overflow-hidden group border-t-indigo-500/20">
-      <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-indigo-500/10 blur-2xl transition-all duration-500 group-hover:bg-indigo-500/20" />
+    <div className="stats-card relative overflow-hidden group border-t-indigo-500/20 py-4 px-4">
+      <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-indigo-500/10 blur-2xl pointer-events-none" />
       <div className="w-full relative z-10">
-        <div className="text-base font-black tracking-wide bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent uppercase">
+        <div className="text-sm font-black tracking-wide bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent uppercase">
           🚀 Make your tasks
         </div>
-        <div className="mt-2 text-xs leading-relaxed text-zinc-400">
-          နေ့စဉ် <span className="text-cyan-400 font-bold">Login</span> ဝင်ပြီး points များ စက္ကန့်ပိုင်းအတွင်း အလွယ်တကူ စုဆောင်းလိုက်ပါ။
+        <div className="mt-1.5 text-xs leading-relaxed text-zinc-400">
+          နေ့စဉ် login ၀င်ပြီး points များ စက္ကန့်ပိုင်းအတွင်း အလွယ်တကူ စုဆောင်းလိုက်ပါ။
         </div>
       </div>
     </div>
   );
 }
 
-// 📦 Reusable Task Card Component (Cyberpunk Style Layout)
+// 📦 Premium Inline Reusable Task Card Component
 function TaskCard({
   title,
   points,
@@ -107,43 +125,42 @@ function TaskCard({
   once?: boolean;
 }) {
   return (
-    <div className="stats-card relative overflow-hidden group transition-all duration-300 hover:border-indigo-500/20">
-      <div className="w-full flex flex-col gap-3.5">
+    <div className="stats-card relative overflow-hidden group transition-all duration-300 hover:border-indigo-500/20 py-3.5 px-4">
+      <div className="w-full flex items-center justify-between gap-4">
         
-        {/* Title & Badge Alignment */}
-        <div className="flex justify-between items-start gap-2">
-          <div className="text-sm font-bold text-white tracking-wide">
+        {/* Left Side: Info Elements */}
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-bold text-white tracking-wide truncate">
             {title.startsWith("Daily") ? "📅 " : title.startsWith("Follow") ? "📢 " : "💬 "}
             {title}
           </div>
-          <span className="text-xs font-black font-mono text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-1 rounded-lg shadow-[0_0_15px_rgba(6,182,212,0.1)] whitespace-nowrap">
-            {points.toUpperCase()}
-          </span>
+          <div className="flex items-center gap-2 mt-1.5">
+            <span className="text-[11px] font-bold font-mono text-cyan-400 drop-shadow-[0_0_6px_rgba(6,182,212,0.3)]">
+              {points.toUpperCase()}
+            </span>
+            {once && (
+              <span className="text-[9px] text-zinc-500 font-semibold border border-zinc-800/60 px-1.5 py-0.2 rounded uppercase tracking-wide">
+                Once
+              </span>
+            )}
+          </div>
         </div>
 
-        {once ? (
-          <div className="text-[10px] text-zinc-500 font-medium -mt-2">
-            Once per user
-          </div>
-        ) : null}
-
-        {/* Interactive Buttons Matrix */}
-        <div className="grid grid-cols-2 gap-2.5 mt-1">
-          {/* Open Button */}
+        {/* Right Side: Inline Action Buttons Group */}
+        <div className="flex items-center gap-2 shrink-0">
           <button
-            className="w-full py-2.5 rounded-xl border border-white/5 bg-white/5 text-xs font-bold text-zinc-300 hover:bg-white/10 active:scale-[0.98] transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            className="py-2 px-3.5 rounded-xl border border-white/5 bg-white/5 text-xs font-bold text-zinc-300 hover:bg-white/10 active:scale-[0.96] transition-all disabled:opacity-20 disabled:cursor-not-allowed"
             disabled={!onOpen}
             onClick={onOpen}
           >
             Open
           </button>
           
-          {/* Action Status Button (Claim/Verify) */}
           <button
-            className={`w-full py-2.5 rounded-xl text-xs font-black transition-all shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] ${
+            className={`py-2 px-4 rounded-xl text-xs font-black transition-all min-w-[80px] text-center shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] ${
               done
                 ? "bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 cursor-not-allowed opacity-80"
-                : "bg-indigo-600 hover:bg-indigo-500 text-white active:scale-[0.98] shadow-lg shadow-indigo-600/10"
+                : "bg-indigo-600 hover:bg-indigo-500 text-white active:scale-[0.96] shadow-md shadow-indigo-600/10"
             }`}
             disabled={done}
             onClick={() => onAction().catch(() => {})}
