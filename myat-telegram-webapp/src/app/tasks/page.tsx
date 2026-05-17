@@ -43,22 +43,7 @@ export default function TasksPage() {
           once
         />
 
-        <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-zinc-200 dark:bg-zinc-950 dark:ring-zinc-800">
-          <div className="flex items-center justify-between">
-            <div className="text-sm font-semibold">Type task</div>
-            <div className="text-xs font-semibold text-indigo-600">+500 pts</div>
-          </div>
-          <div className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">
-            Community group chat ထဲမှာ <span className="font-semibold">Let's Go with Myat</span>{" "}
-            လို့ type လုပ်ပါ။ Bot က auto detect လုပ်ပြီး points ပေးပါမယ်။
-          </div>
-          <div className="mt-3 flex items-center justify-between rounded-xl bg-zinc-50 px-3 py-2 text-xs ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">
-            <div>Status</div>
-            <div className={tasks?.phrase ? "font-semibold text-emerald-600" : "text-zinc-500 dark:text-zinc-400"}>
-              {tasks?.phrase ? "Done" : "Not yet"}
-            </div>
-          </div>
-        </div>
+        {/* ✂️ Type task အကွက်ဟောင်းကို ဒီနေရာကနေ လုံးဝ ဖြတ်ထုတ်လိုက်ပါပြီ */}
 
         <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-zinc-200 dark:bg-zinc-950 dark:ring-zinc-800">
           <div className="text-sm font-semibold">Referral</div>
@@ -76,7 +61,8 @@ function InfoCard() {
     <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-zinc-200 dark:bg-zinc-950 dark:ring-zinc-800">
       <div className="text-sm font-semibold">Make your tasks</div>
       <div className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
-        နေ့စဉ် login ၀င်ပြီး points များစုဆောင်းလိုက်ပါ။/div>
+        နေ့စဉ် login ၀င်ပြီး points များစုဆောင်းလိုက်ပါ။
+      </div>
     </div>
   );
 }
@@ -127,5 +113,5 @@ function TaskCard({
       ) : null}
     </div>
   );
-}
-
+          }
+        
