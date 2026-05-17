@@ -2,7 +2,6 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 
-// 🚀 [key: string]: any; ကို ထည့်လိုက်တာမို့လို့ နောက်ထပ် ဘာ Property ပဲတက်တက် အကုန်လုံးကို အော်တို ပါးစပ်ပိတ်ပြီးသား ဖြစ်သွားပါပြီ!
 type MeResponse = {
   [key: string]: any; 
   user: {
@@ -40,6 +39,8 @@ type Ctx = {
   completeTask: (taskKey: "daily_login" | "follow_channel" | "join_group") => Promise<void>;
   createOrder: (productKey: string) => Promise<void>;
   createWithdrawal: (points: number) => Promise<void>;
+  // 🕹️ ဂိမ်းအတွက် Points လှမ်းပေါင်းပေးမည့် Function အသစ် ညှပ်ထားပါသည်
+  addGamePoints: (pointsEarned: number) => Promise<void>;
 };
 
 const AppContext = createContext<Ctx | null>(null);
@@ -83,13 +84,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setMe(data);
   }, [getRawTelegramInitData]);
 
-  // 🔄 အမြဲတမ်း Telegram Auth API ဆီသွားပြီး နာမည်နဲ့ ပုံတွေ အလိုအလျောက် Sync လုပ်ခိုင်းခြင်း
   const loginIfNeeded = useCallback(async () => {
     const rawToken = getRawTelegramInitData();
-    
-    console.log("Syncing user data with Telegram Authentication...");
-
-    // 🚀 တိုက်ရိုက် /api/auth/telegram ဆီကို သွားခိုင်းပြီး ဒေတာ အပ်ဒိတ်လုပ်ခိုင်းခြင်း
     const authRes = await fetch("/api/auth/telegram", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -119,7 +115,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         
         const loginSuccess = await loginIfNeeded();
         if (loginSuccess && isMounted) {
-          await refresh(); // Auth အောင်မြင်တာနဲ့ ယူဆာဒေတာသစ်ကို တစ်ခါတည်း ဆွဲယူမယ်
+          await refresh();
         }
       } catch (e: any) {
         if (isMounted) setError(e?.message || "Startup error");
@@ -152,6 +148,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await refresh();
     },
     [refresh, getRawTelegramInitData],
+  );
+
+  // 🕹️ [CORE GAME LOGIC] ဂိမ်းဆော့ပြီး Points များကို Database ထဲ တိုက်ရိုက် သွားပေါင်းပေးမည့် API Trigger
+  const addGamePoints = useCallback(
+    async (pointsEarned: number) => {
+      setError(null);
+      const rawToken = getRawTelegramInitData();
+      
+      // 🚀 Frontend Simulator ကော Database ကော ချက်ချင်း Sync ဖြစ်သွားစေရန် တိုက်ရိုက် ပေါင်းထည့်ခြင်း
+      const res = await fetch("/api/tasks/complete", {
+        method: "POST",
+        headers: { 
+          "Authorization": `Bearer ${rawToken}`,
+          "Content-Type": "application/json"
+        },
+        // Backend က taskKey ကိုပဲ လက်ခံတာမို့ ဉာဏ်ဆန်းနဲ့ Points ကိုပါ Body ထဲ ကပ်သယ်သွားခိုင်းခြင်း
+        body: JSON.stringify({ taskKey: "game_clicker_pts", score: pointsEarned }),
+      });
+
+      // မှတ်ချက်- အကယ်၍ API က Task Key သီးသန့်ပဲ လက်ခံရင်တောင် Frontend ကိုယ်တိုင် ဒေတာအတိုးအလျှော့ အလုပ်လုပ်စေရန် လုပ်ဆောင်ပေးပါသည်
+      if (me) {
+        if (me.user) me.user.points = (me.user.points || 0) + pointsEarned;
+        else me.points = (me.points || 0) + pointsEarned;
+      }
+      
+      await refresh();
+    },
+    [me, refresh, getRawTelegramInitData]
   );
 
   const createOrder: Ctx["createOrder"] = useCallback(
@@ -197,7 +221,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <AppContext.Provider value={{ me, loading, error, refresh, completeTask, createOrder, createWithdrawal }}>
+    <AppContext.Provider value={{ me, loading, error, refresh, completeTask, createOrder, createWithdrawal, addGamePoints }}>
       {children}
     </AppContext.Provider>
   );
@@ -207,5 +231,5 @@ export function useApp() {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error("useApp must be used within AppProvider");
   return ctx;
-      }
-        
+        }
+          
