@@ -1,5 +1,6 @@
 "use client";
-
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 import { AppShell } from "@/components/AppShell";
 import { useApp } from "@/components/AppProvider";
 
