@@ -36,7 +36,8 @@ export default function RootLayout({
           strategy="beforeInteractive"
         />
       </head>
-      <body className="min-h-full">
+      {/* 🔥 [UI ပြင်ဆင်ချက်] body ထဲက ရိုးရိုး background class တွေ ဖယ်ထုတ်ပြီး globals.css က premium-bg အလုပ်လုပ်အောင် သတ်မှတ်ခြင်း */}
+      <body className="min-h-full bg-background text-foreground selection:bg-indigo-500/30">
         <Providers>{children}</Providers>
       </body>
     </html>
