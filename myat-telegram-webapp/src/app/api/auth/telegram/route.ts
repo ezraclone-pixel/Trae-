@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+return { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { setUserSession } from "@/lib/auth";
 import { verifyTelegramInitData } from "@/lib/telegram";
@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
         points: user.points,
         reservedPoints: user.reservedPoints,
         referrerId: user.referrerId,
-      },
+      }, 
     });
 
   } catch (dbError: any) {
