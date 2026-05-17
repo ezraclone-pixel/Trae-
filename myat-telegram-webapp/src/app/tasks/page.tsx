@@ -74,10 +74,9 @@ export default function TasksPage() {
 function InfoCard() {
   return (
     <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-zinc-200 dark:bg-zinc-950 dark:ring-zinc-800">
-      <div className="text-sm font-semibold">Reset time</div>
+      <div className="text-sm font-semibold">Make your tasks</div>
       <div className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
-        Daily tasks (Daily login + Type task) ကို Myanmar time 12:00 PM မှာ reset လုပ်ပါတယ်။
-      </div>
+        နေ့စဉ် login ၀င်ပြီး points များစုဆောင်းလိုက်ပါ။/div>
     </div>
   );
 }
