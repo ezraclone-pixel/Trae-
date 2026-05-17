@@ -2,7 +2,8 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 
-type MeResponse = {
+Type MeResponse = {
+  telegramId?: string;
   user: {
     telegramId: string;
     username?: string | null;
