@@ -34,7 +34,7 @@ model User {
 }
 
 model TaskCompletion {
-  id        String   @id @map("id")
+  id        String   @id @default(cuid()) @map("id") // ✅ @default(cuid()) ထည့်သွင်းပြင်ဆင်ပြီး
   userId    String   @map("userId")
   user      User     @relation(fields: [userId], references: [telegramId], onDelete: Cascade)
   taskKey   String   @map("taskKey")
@@ -48,7 +48,7 @@ model TaskCompletion {
 }
 
 model ReferralCredit {
-  id        String   @id @map("id")
+  id        String   @id @default(cuid()) @map("id") // ✅ [အဓိကအမှား] @default(cuid()) ကွက်တိ ထည့်လိုက်ပါပြီ
   referrerId String  @map("referrerId")
   referrer   User     @relation("ReferrerCredits", fields: [referrerId], references: [telegramId], onDelete: Cascade)
   referredId String  @unique @map("referredId")
@@ -59,7 +59,7 @@ model ReferralCredit {
 }
 
 model Order {
-  id        String   @id @map("id")
+  id        String   @id @default(cuid()) @map("id") // ✅ @default(cuid()) ထည့်သွင်းပြင်ဆင်ပြီး
   userId    String   @map("userId")
   user      User     @relation(fields: [userId], references: [telegramId], onDelete: Cascade)
   category  String   @map("category")
@@ -73,7 +73,7 @@ model Order {
 }
 
 model WithdrawalRequest {
-  id        String   @id @map("id")
+  id        String   @id @default(cuid()) @map("id") // ✅ @default(cuid()) ထည့်သွင်းပြင်ဆင်ပြီး
   userId    String   @map("userId")
   user      User     @relation(fields: [userId], references: [telegramId], onDelete: Cascade)
   points    Int      @map("points")
