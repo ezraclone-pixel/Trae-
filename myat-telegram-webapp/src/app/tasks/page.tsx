@@ -1,6 +1,6 @@
 "use client";
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+
+// 🚀 Next.js အော်စေတဲ့ dynamic နဲ့ revalidate နှစ်ကြောင်းလုံးကို ဇွတ် ဖြတ်ပစ်လိုက်ပါပြီ!
 import { AppShell } from "@/components/AppShell";
 import { useApp } from "@/components/AppProvider";
 
@@ -8,8 +8,8 @@ export default function TasksPage() {
   const { me, completeTask } = useApp();
   const tasks = me?.tasks;
 
-  const mainChannel = me?.config.mainChannel || "@Myat_2055";
-  const communityGroup = me?.config.communityGroup || "@myat_2055G";
+  const mainChannel = me?.config?.mainChannel || "@Myat_2055";
+  const communityGroup = me?.config?.communityGroup || "@myat_2055G";
 
   return (
     <AppShell title="Tasks">
@@ -112,5 +112,4 @@ function TaskCard({
       ) : null}
     </div>
   );
-        }
-          
+}
