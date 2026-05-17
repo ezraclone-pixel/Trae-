@@ -43,8 +43,6 @@ export default function TasksPage() {
           once
         />
 
-        {/* ✂️ Type task အကွက်ဟောင်းကို ဒီနေရာကနေ လုံးဝ ဖြတ်ထုတ်လိုက်ပါပြီ */}
-
         <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-zinc-200 dark:bg-zinc-950 dark:ring-zinc-800">
           <div className="text-sm font-semibold">Referral</div>
           <div className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
@@ -113,5 +111,5 @@ function TaskCard({
       ) : null}
     </div>
   );
-          }
-        
+        }
+          
