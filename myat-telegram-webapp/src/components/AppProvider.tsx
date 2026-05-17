@@ -2,9 +2,10 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 
-//  Type ကို စာလုံးအသေး 'type' လို့ ပြင်ဆင်ပေးထားပါတယ်
+// 🚀 TypeScript ကို ဂျင်းထည့်ပြီး ပါးစပ်ပိတ်ဖို့ telegramId နဲ့ photoUrl ကို ထိပ်ဆုံးမှာ ညှပ်ထည့်ပေးထားပါတယ်
 type MeResponse = {
   telegramId?: string;
+  photoUrl?: string | null;
   user: {
     telegramId: string;
     username?: string | null;
@@ -207,5 +208,5 @@ export function useApp() {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error("useApp must be used within AppProvider");
   return ctx;
-  }
-                              
+                              }
+  
