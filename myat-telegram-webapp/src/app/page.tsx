@@ -5,17 +5,29 @@ import { useApp } from "@/components/AppProvider";
 import { useState, useEffect, useRef } from "react";
 
 export default function HomePage() {
-  const { me, addGamePoints } = useApp(); // Backend နှင့် ချိတ်ဆက်ရန် (Points နှုတ်/ပေါင်း အတွက်)
+  const { me, addGamePoints } = useApp(); // Backend Database နှင့် ချိတ်ဆက်ရန်
   
   const botUsername = process.env.NEXT_PUBLIC_BOT_USERNAME || process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME;
   const [copied, setCopied] = useState(false);
 
-  // 🕹️ TAPSWAP CORE STATES (Local Storage တွင် သိမ်းဆည်းမည်)
+  const referralLink =
+    me && botUsername
+      ? `https://t.me/${botUsername}?start=ref_${(me as any)?.user?.telegramId || (me as any)?.telegramId || ""}`
+      : null;
+
+  const handleCopy = async () => {
+    if (!referralLink) return;
+    await navigator.clipboard.writeText(referralLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  // 🕹️ TAPSWAP CORE STATES (Local Storage တွင် Local Save လုပ်မည်)
   const [points, setPoints] = useState(0);
   const [energy, setEnergy] = useState(500);
   const [activeTab, setActiveTab] = useState<"earn" | "boost">("earn");
 
-  // BOOSTER LEVELS
+  // BOOSTER LEVELS (Max Level 20)
   const [tapLvl, setTapLvl] = useState(1);
   const [capLvl, setCapLvl] = useState(1);
   const [speedLvl, setSpeedLvl] = useState(1);
@@ -24,12 +36,12 @@ export default function HomePage() {
   const [tapEffects, setTapEffects] = useState<{ id: number; x: number; y: number }[]>([]);
   const pointsRef = useRef(points);
 
-  // Dynamic Stats Calculations (ဉာဏ်ဆန်း တွက်ချက်မှုများ)
-  const maxEnergy = 500 + (capLvl - 1) * 500;
-  const pointsPerTap = 1 + (tapLvl - 1);
-  const energyRegenPerSec = 1 + (speedLvl - 1);
+  // Dynamic Game Stats Calculations
+  const maxEnergy = 500 + (capLvl - 1) * 500; // စစချင်း 500, Level တက်တိုင်း +500
+  const pointsPerTap = 1 + (tapLvl - 1);       // စစချင်း 1 point, Level တက်တိုင်း +1
+  const energyRegenPerSec = 1 + (speedLvl - 1); // စစချင်း 1/s, Level တက်တိုင်း +1/s
 
-  // Boosters Upgrade Costs Formulas (ဆတိုးတွက်ချက်မှုစနစ်)
+  // Boosters Upgrade Costs Formulas (ဆတိုးတက်သွားမည့် စနစ်)
   const getTapUpgradeCost = (lvl: number) => lvl === 1 ? 200 : Math.floor(200 * Math.pow(1.5, lvl - 1));
   const getCapUpgradeCost = (lvl: number) => lvl === 1 ? 200 : Math.floor(200 * Math.pow(1.5, lvl - 1));
   const getSpeedUpgradeCost = (lvl: number) => lvl === 1 ? 2000 : Math.floor(2000 * Math.pow(1.6, lvl - 1));
@@ -50,12 +62,12 @@ export default function HomePage() {
     setSpeedLvl(Number(savedSpeedLvl));
   }, []);
 
-  // Sync Points to Ref for auto-save operations
+  // Sync Points to Ref for background database updates
   useEffect(() => {
     pointsRef.current = points;
   }, [points]);
 
-  // ⚡ AUTOMATIC ENERGY REGENERATION ENGINE (1 Second Interval)
+  // ⚡ AUTOMATIC ENERGY REGENERATION ENGINE (1 Second Interval Loop)
   useEffect(() => {
     const interval = setInterval(() => {
       setEnergy((prev) => {
@@ -69,12 +81,11 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, [maxEnergy, energyRegenPerSec]);
 
-  // 💾 AUTO BACKEND SYNC (၅ စက္ကန့်တစ်ခါ Database ပေါ်သို့ လှမ်းသိမ်းပေးခြင်း)
+  // 💾 AUTO BACKEND SYNC (၅ စက္ကန့်တစ်ခါ Database ပေါ်သို့ စုပြီး လှမ်းသိမ်းပေးခြင်း)
   useEffect(() => {
     const syncInterval = setInterval(async () => {
       if (addGamePoints && pointsRef.current > 0) {
         try {
-          // နှိပ်ထားသမျှ points များကို Server database ထဲသို့ သွားပေါင်းထည့်ပေးမည်
           await addGamePoints(pointsRef.current);
         } catch (e) {
           console.error("Sync failed", e);
@@ -97,7 +108,7 @@ export default function HomePage() {
     localStorage.setItem("tw_energy", String(nextEnergy));
     localStorage.setItem("tw_points", String(nextPoints));
 
-    // Floating Text Coordinates +1, +2 Click Animation Effect
+    // Floating Text Animations Effect
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
@@ -109,7 +120,7 @@ export default function HomePage() {
     }, 600);
   };
 
-  // 🚀 BOOST UPGRADE HANDLERS
+  // 🚀 BOOST UPGRADE HANDLERS (Max Lvl 20 Boundary Check)
   const upgradeBooster = (type: "tap" | "cap" | "speed") => {
     if (type === "tap" && tapLvl < 20) {
       const cost = getTapUpgradeCost(tapLvl);
@@ -141,7 +152,7 @@ export default function HomePage() {
     <AppShell title="Home">
       <div className="app-container pb-28 flex flex-col justify-between min-h-[78vh] text-white">
         
-        {/* TOP COIN & MAIN BALANCE DISPLAY */}
+        {/* TOP MAIN COIN DISPLAY */}
         <div className="text-center mt-6 space-y-1 relative z-10">
           <div className="text-[11px] text-zinc-500 uppercase tracking-[0.2em] font-black">MYAT BALANCE</div>
           <div className="text-4xl font-black font-mono tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white to-zinc-400 flex items-center justify-center gap-2">
@@ -149,27 +160,25 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* 🔄 CONDITIONAL NAVIGATION TABS */}
+        {/* 🔄 TABS VIEW RENDERING */}
         {activeTab === "earn" ? (
-          /* =================== 🪙 EARN MAIN COIN SCREEN =================== */
+          /* =================== 🪙 EARN SCREEN =================== */
           <div className="flex flex-col items-center justify-center my-auto relative select-none">
-            {/* Ambient Core Aura Background Glow */}
             <div className="absolute w-72 h-72 bg-amber-500/10 blur-[90px] rounded-full pointer-events-none" />
 
-            {/* 🔥 BIG INTERACTIVE COIN PAD */}
+            {/* 🔥 TAP COIN */}
             <div 
               onClick={handleTap}
               className="relative w-64 h-64 rounded-full bg-gradient-to-b from-amber-300 via-amber-500 to-amber-700 p-[3px] shadow-[0_0_50px_rgba(245,158,11,0.2)] active:scale-[0.94] transition-all cursor-pointer group"
             >
               <div className="w-full h-full rounded-full bg-[#0d0e12] flex items-center justify-center relative overflow-hidden">
-                {/* Inner Coin Texture Design */}
                 <div className="w-[88%] h-[88%] rounded-full border border-amber-500/20 bg-gradient-to-br from-amber-500/5 to-transparent flex flex-col items-center justify-center">
                   <span className="text-7xl filter drop-shadow-[0_0_15px_rgba(245,158,11,0.5)] select-none">🪙</span>
                   <span className="text-[10px] font-black text-amber-500/40 tracking-[0.2em] mt-3 uppercase">Powered By Myat</span>
                 </div>
               </div>
 
-              {/* ⚡ Burst Floating Numbers Multi-text render (+1, +2, etc.) */}
+              {/* Burst Floating Text Anim Effect */}
               {tapEffects.map((effect) => (
                 <div
                   key={effect.id}
@@ -182,15 +191,27 @@ export default function HomePage() {
             </div>
           </div>
         ) : (
-          /* =================== 🔥 BOOST UPGRADES CARD LIST =================== */
+          /* =================== 🚀 BOOST SCREEN =================== */
           <div className="flex-1 my-6 space-y-3 relative z-10 max-w-md w-full mx-auto px-2 overflow-y-auto">
-            <h2 className="text-xs font-black tracking-widest text-zinc-500 uppercase mb-4">🚀 Upgrades & Boosters</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xs font-black tracking-widest text-zinc-500 uppercase">🚀 Upgrades & Boosters</h2>
+              {referralLink && (
+                <button
+                  onClick={handleCopy}
+                  className={`py-1 px-2.5 rounded-lg text-[9px] font-black uppercase tracking-wider border ${
+                    copied ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-white/5 border-white/5 text-zinc-400"
+                  }`}
+                >
+                  {copied ? "Copied ✓" : "🔗 Get Free Tickets"}
+                </button>
+              )}
+            </div>
 
             {/* 1. Multitap Boost */}
             <div className="bg-zinc-900/60 border border-white/5 p-3.5 rounded-2xl flex justify-between items-center backdrop-blur-xl">
               <div>
                 <div className="text-xs font-black text-white flex items-center gap-1.5">👆 Multitap <span className="text-[10px] text-amber-400 font-mono">Lvl {tapLvl}/20</span></div>
-                <div className="text-[10px] text-zinc-500 mt-0.5">Increase amount of points per tap. (+1 per tap)</div>
+                <div className="text-[10px] text-zinc-500 mt-0.5">Increase points per tap. (+1 per tap)</div>
               </div>
               <button
                 onClick={() => upgradeBooster("tap")}
@@ -205,7 +226,7 @@ export default function HomePage() {
             <div className="bg-zinc-900/60 border border-white/5 p-3.5 rounded-2xl flex justify-between items-center backdrop-blur-xl">
               <div>
                 <div className="text-xs font-black text-white flex items-center gap-1.5">🔋 Energy Limit <span className="text-[10px] text-cyan-400 font-mono">Lvl {capLvl}/20</span></div>
-                <div className="text-[10px] text-zinc-500 mt-0.5">Increase ⚡ capacity. (+500 limit max)</div>
+                <div className="text-[10px] text-zinc-500 mt-0.5">Increase energy limit. (+500 capacity)</div>
               </div>
               <button
                 onClick={() => upgradeBooster("cap")}
@@ -220,7 +241,7 @@ export default function HomePage() {
             <div className="bg-zinc-900/60 border border-white/5 p-3.5 rounded-2xl flex justify-between items-center backdrop-blur-xl">
               <div>
                 <div className="text-xs font-black text-white flex items-center gap-1.5">⚡ Recharge Speed <span className="text-[10px] text-emerald-400 font-mono">Lvl {speedLvl}/20</span></div>
-                <div className="text-[10px] text-zinc-500 mt-0.5">Increase speed of energy auto-recovery. (+1/s)</div>
+                <div className="text-[10px] text-zinc-500 mt-0.5">Increase energy auto-recovery speed. (+1/s)</div>
               </div>
               <button
                 onClick={() => upgradeBooster("speed")}
@@ -233,10 +254,9 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* BOTTOM REALTIME STATUS & CONTROL HUD CONTAINER */}
+        {/* BOTTOM ENERGY BAR & FOOTER HUD */}
         <div className="w-full max-w-md mx-auto space-y-4">
           
-          {/* ⚡ ENERGY FILL STATE STATUS BAR (TapSwap UI ကြီးအတိုင်း) */}
           {activeTab === "earn" && (
             <div className="px-2 space-y-1.5">
               <div className="flex justify-between items-center font-mono text-[11px] font-black uppercase tracking-wider">
@@ -252,7 +272,7 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* 📱 LOWER CONTROL DOCK NAVIGATION FOOTER (TapSwap Menu Layout) */}
+          {/* DOCK MENUS */}
           <div className="grid grid-cols-2 gap-2 border border-white/5 bg-zinc-950/80 backdrop-blur-2xl p-1.5 rounded-2xl shadow-2xl">
             <button
               onClick={() => setActiveTab("earn")}
@@ -275,7 +295,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* GLOBAL DYNAMIC CSS ANIMATION FOR COIN IMPULSE POPPING */}
+        {/* COIN IMPACT FLOATING CSS ANIMATION */}
         <style jsx global>{`
           @keyframes floatUp {
             0% { opacity: 1; transform: translate(-50%, -50%) translateY(0) scale(1); }
@@ -289,5 +309,5 @@ export default function HomePage() {
       </div>
     </AppShell>
   );
-                         }
-                
+    }
+                               
