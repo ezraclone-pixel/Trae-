@@ -15,8 +15,34 @@ export async function POST(req: NextRequest) {
   const userId = await getUserIdFromRequest(req);
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { taskKey } = (await req.json().catch(() => ({}))) as { taskKey?: string };
-  if (!taskKey || !(taskKey in TASKS))
+  const body = (await req.json().catch(() => ({}))) as { taskKey?: string; score?: number };
+  const { taskKey, score } = body;
+
+  if (!taskKey) return NextResponse.json({ error: "Invalid task" }, { status: 400 });
+
+  // 🕹️ GAME CLICKER TAP ENGINE FOR BACKEND
+  if (taskKey === "game_clicker") {
+    const pointsToAdd = Number(score || 0);
+    if (isNaN(pointsToAdd) || pointsToAdd <= 0) {
+      return NextResponse.json({ error: "Invalid score" }, { status: 400 });
+    }
+
+    try {
+      // User Table ထဲက ပွိုင့်ကို တိုက်ရိုက် တိုးပေးမည်
+      const updatedUser = await prisma.user.update({
+        where: { telegramId: userId },
+        data: { points: { increment: pointsToAdd } },
+      });
+      
+      // Front-end Context ဆီ သွားညှိရန် User Object အသစ်ကို တန်းပြန်ပေးမည်
+      return NextResponse.json({ ok: true, user: updatedUser });
+    } catch (e: any) {
+      return NextResponse.json({ error: "Failed to update game points", detail: e?.message }, { status: 500 });
+    }
+  }
+
+  // 📝 STANDARD TASKS LOGIC (DAILY, FOLLOW, JOIN)
+  if (!(taskKey in TASKS))
     return NextResponse.json({ error: "Invalid task" }, { status: 400 });
 
   const def = (TASKS as any)[taskKey] as { type: "daily" | "once"; points: number };
@@ -68,7 +94,6 @@ export async function POST(req: NextRequest) {
       });
     });
   } catch (e: any) {
-    // Unique constraint -> already completed
     if (String(e?.code) === "P2002") {
       return NextResponse.json({ ok: true, already: true });
     }
@@ -76,4 +101,4 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ ok: true });
-}
+        }
