@@ -39,7 +39,6 @@ type Ctx = {
   completeTask: (taskKey: "daily_login" | "follow_channel" | "join_group") => Promise<void>;
   createOrder: (productKey: string) => Promise<void>;
   createWithdrawal: (points: number) => Promise<void>;
-  // 🕹️ ဂိမ်းအတွက် Points လှမ်းပေါင်းပေးမည့် Function အသစ် ညှပ်ထားပါသည်
   addGamePoints: (pointsEarned: number) => Promise<void>;
 };
 
@@ -150,32 +149,52 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [refresh, getRawTelegramInitData],
   );
 
-  // 🕹️ [CORE GAME LOGIC] ဂိမ်းဆော့ပြီး Points များကို Database ထဲ တိုက်ရိုက် သွားပေါင်းပေးမည့် API Trigger
+  // 🕹️ [FIXED CORE GAME API SYNC] - တကယ့် TapSwap Logic အမှန်အတိုင်း ပြင်ဆင်ထားသည်
   const addGamePoints = useCallback(
     async (pointsEarned: number) => {
       setError(null);
       const rawToken = getRawTelegramInitData();
       
-      // 🚀 Frontend Simulator ကော Database ကော ချက်ချင်း Sync ဖြစ်သွားစေရန် တိုက်ရိုက် ပေါင်းထည့်ခြင်း
-      const res = await fetch("/api/tasks/complete", {
-        method: "POST",
-        headers: { 
-          "Authorization": `Bearer ${rawToken}`,
-          "Content-Type": "application/json"
-        },
-        // Backend က taskKey ကိုပဲ လက်ခံတာမို့ ဉာဏ်ဆန်းနဲ့ Points ကိုပါ Body ထဲ ကပ်သယ်သွားခိုင်းခြင်း
-        body: JSON.stringify({ taskKey: "game_clicker_pts", score: pointsEarned }),
+      // 1. 🔥 React State Mutation မဖြစ်စေဘဲ စနစ်မှန်အတိုင်း Frontend Display ပွိုင့်ကို အရင် realtime တိုးပေးထားမည်
+      setMe((prevMe) => {
+        if (!prevMe) return null;
+        return {
+          ...prevMe,
+          user: {
+            ...prevMe.user,
+            points: (prevMe.user?.points || 0) + pointsEarned,
+          },
+        };
       });
 
-      // မှတ်ချက်- အကယ်၍ API က Task Key သီးသန့်ပဲ လက်ခံရင်တောင် Frontend ကိုယ်တိုင် ဒေတာအတိုးအလျှော့ အလုပ်လုပ်စေရန် လုပ်ဆောင်ပေးပါသည်
-      if (me) {
-        if (me.user) me.user.points = (me.user.points || 0) + pointsEarned;
-        else me.points = (me.points || 0) + pointsEarned;
+      try {
+        // 2. 🚀 Tap လုပ်ပြီးရလာတဲ့ Points တွေကို သိမ်းဖို့ သီးသန့် API Endpoint (/api/game/add-points) သို့ ပို့ခြင်း
+        // မှတ်ချက်- အကယ်၍ Backend API လမ်းကြောင်းက ကွဲပြားနေပါက "/api/user/add-points" စသဖြင့် ပြောင်းလဲနိုင်ပါသည်
+        const res = await fetch("/api/game/add-points", {
+          method: "POST",
+          headers: { 
+            "Authorization": `Bearer ${rawToken}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ points: pointsEarned }),
+        });
+
+        // အကယ်၍ API လမ်းကြောင်းမရှိသေး၍ Error တက်ခဲ့လျှင်လည်း Database က နောက်ဆုံး Data ကို ပြန်ဆွဲပြီး Sync လုပ်ပေးမည်
+        if (res.ok) {
+          const updatedData = await res.json();
+          if (updatedData && updatedData.user) {
+            setMe(updatedData);
+          }
+        } else {
+          // API အဆင်မပြေပါက ဒေတာအမှန်ရရန် မူရင်း /api/me ကို ခေါ်ယူပြီး ပွိုင့်ပြန်ညှိမည်
+          await refresh();
+        }
+      } catch (e) {
+        console.error("Failed to sync game points to database:", e);
+        await refresh();
       }
-      
-      await refresh();
     },
-    [me, refresh, getRawTelegramInitData]
+    [refresh, getRawTelegramInitData]
   );
 
   const createOrder: Ctx["createOrder"] = useCallback(
@@ -231,5 +250,5 @@ export function useApp() {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error("useApp must be used within AppProvider");
   return ctx;
-        }
-          
+    }
+            
