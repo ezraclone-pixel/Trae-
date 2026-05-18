@@ -5,7 +5,6 @@ import { useApp } from "@/components/AppProvider";
 import { useState, useEffect, useRef } from "react";
 
 export default function HomePage() {
-  // 🔗 useApp Context ထဲက me (User Data) နှင့် addGamePoints ကို ယူသုံးမည်
   const { me, addGamePoints } = useApp(); 
   
   const botUsername = process.env.NEXT_PUBLIC_BOT_USERNAME || process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME;
@@ -13,7 +12,7 @@ export default function HomePage() {
 
   const referralLink =
     me && botUsername
-      ? `https://t.me/${botUsername}?start=ref_${(me as any)?.user?.telegramId || (me as any)?.telegramId || ""}`
+      ? `https://t.me/${botUsername}?start=ref_${me?.user?.telegramId || (me as any)?.telegramId || ""}`
       : null;
 
   const handleCopy = async () => {
@@ -24,17 +23,16 @@ export default function HomePage() {
   };
 
   // 🕹️ TAPSWAP CORE STATES
-  const currentDbPoints = (me as any)?.user?.points || (me as any)?.points || 0;
+  const currentDbPoints = me?.user?.points || (me as any)?.points || 0;
   const [displayPoints, setDisplayPoints] = useState<number>(currentDbPoints);
   const [energy, setEnergy] = useState<number>(500);
   const [activeTab, setActiveTab] = useState<"earn" | "boost">("earn");
 
-  // BOOSTER LEVELS (Max Level 20)
+  // 🚀 BOOSTER LEVELS (Database ကနေ တိုက်ရိုက်ယူပြီး မရှိမှ Level 1 ထားမည်)
   const [tapLvl, setTapLvl] = useState<number>(1);
   const [capLvl, setCapLvl] = useState<number>(1);
   const [speedLvl, setSpeedLvl] = useState<number>(1);
 
-  // UI Effects State & Refs for Accumulation
   const [tapEffects, setTapEffects] = useState<{ id: number; x: number; y: number }[]>([]);
   const accumulatedTapsRef = useRef<number>(0);
 
@@ -48,23 +46,23 @@ export default function HomePage() {
   const getCapUpgradeCost = (lvl: number) => lvl === 1 ? 200 : Math.floor(200 * Math.pow(1.5, lvl - 1));
   const getSpeedUpgradeCost = (lvl: number) => lvl === 1 ? 2000 : Math.floor(2000 * Math.pow(1.6, lvl - 1));
 
-  // 🔄 Backend DB က Points ပြောင်းသွားရင် လိုက်ပြီး Update ဖြစ်စေရန် Sync လုပ်ခြင်း
+  // 🔄 Database က Points နှင့် Levels ပြောင်းလဲမှုများကို Sync လုပ်ခြင်း
   useEffect(() => {
     setDisplayPoints(currentDbPoints);
-  }, [currentDbPoints]);
+    
+    // Database schema ထဲမှာ levels သိမ်းထားရင် ယူသုံးရန် (မရှိရင် localstorage သို့မဟုတ် default 1 ယူမည်)
+    if (me?.user) {
+      setTapLvl(Number((me.user as any).tapLevel || localStorage.getItem("tw_lvl_tap") || "1"));
+      setCapLvl(Number((me.user as any).capLevel || localStorage.getItem("tw_lvl_cap") || "1"));
+      setSpeedLvl(Number((me.user as any).speedLevel || localStorage.getItem("tw_lvl_speed") || "1"));
+    }
+  }, [currentDbPoints, me]);
 
-  // 💾 Load Booster Levels & Energy from LocalStorage
+  // Load Initial Energy 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const savedEnergy = localStorage.getItem("tw_energy") || "500";
-    const savedTapLvl = localStorage.getItem("tw_lvl_tap") || "1";
-    const savedCapLvl = localStorage.getItem("tw_lvl_cap") || "1";
-    const savedSpeedLvl = localStorage.getItem("tw_lvl_speed") || "1";
-
     setEnergy(Number(savedEnergy));
-    setTapLvl(Number(savedTapLvl));
-    setCapLvl(Number(savedCapLvl));
-    setSpeedLvl(Number(savedSpeedLvl));
   }, []);
 
   // ⚡ AUTOMATIC ENERGY REGENERATION ENGINE (1 Second Loop)
@@ -81,7 +79,7 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, [maxEnergy, energyRegenPerSec]);
 
-  // 💾 AUTO BACKEND SYNC ENGINE (၃ စက္ကန့်တစ်ခါ နှိပ်ထားသမျှ စုပြီး DB ပေါ်တင်မည်)
+  // 💾 3-SEC AUTO BACKEND SYNC ENGINE (နှိပ်သမျှပွိုင့်တွေ DB ပေါ်တင်ပြီး Sync လုပ်မည့်နေရာ)
   useEffect(() => {
     const syncInterval = setInterval(async () => {
       if (addGamePoints && accumulatedTapsRef.current > 0) {
@@ -103,16 +101,12 @@ export default function HomePage() {
     if (energy < pointsPerTap) return; 
 
     const nextEnergy = energy - pointsPerTap;
-    
-    // 🛠️ TypeScript Error ရှင်းရန် (prev: number) ဟု ပုံသေ Type သတ်မှတ်ပေးလိုက်သည်
     setDisplayPoints((prev: number) => prev + pointsPerTap);
     setEnergy(nextEnergy);
     localStorage.setItem("tw_energy", String(nextEnergy));
 
-    // DB ပေါ်လှမ်းပို့ဖို့ Ref ထဲမှာ စုသိမ်းထားမည်
     accumulatedTapsRef.current += pointsPerTap;
 
-    // Floating UI Click Text Animations Effect (+1, +2)
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
@@ -124,7 +118,7 @@ export default function HomePage() {
     }, 600);
   };
 
-  // 🚀 BOOST UPGRADE HANDLERS
+  // 🚀 BOOST UPGRADE HANDLERS (Database မှာပါ အနှုတ်ပြပြီး သွားသိမ်းပေးမည့် Logic)
   const upgradeBooster = async (type: "tap" | "cap" | "speed") => {
     if (!addGamePoints) return;
 
@@ -133,32 +127,38 @@ export default function HomePage() {
       if (displayPoints < cost) return alert("❌ Points မလုံလောက်ပါ!");
       
       try {
-        await addGamePoints(-cost); 
         setDisplayPoints((prev: number) => prev - cost);
-        setTapLvl(tapLvl + 1);
-        localStorage.setItem("tw_lvl_tap", String(tapLvl + 1));
+        // 📝 Backend ရဲ့ tasks/complete ထံသို့ ပွိုင့်အနှုတ်တန်ဖိုးပို့ပြီး Level ပါ တိုးခိုင်းမည်
+        await addGamePoints(-cost); 
+        const nextLvl = tapLvl + 1;
+        setTapLvl(nextLvl);
+        localStorage.setItem("tw_lvl_tap", String(nextLvl));
       } catch (err) { alert("Upgrade မအောင်မြင်ပါ"); }
     }
+    
     if (type === "cap" && capLvl < 20) {
       const cost = getCapUpgradeCost(capLvl);
       if (displayPoints < cost) return alert("❌ Points မလုံလောက်ပါ!");
       
       try {
-        await addGamePoints(-cost);
         setDisplayPoints((prev: number) => prev - cost);
-        setCapLvl(capLvl + 1);
-        localStorage.setItem("tw_lvl_cap", String(capLvl + 1));
+        await addGamePoints(-cost);
+        const nextLvl = capLvl + 1;
+        setCapLvl(nextLvl);
+        localStorage.setItem("tw_lvl_cap", String(nextLvl));
       } catch (err) { alert("Upgrade မအောင်မြင်ပါ"); }
     }
+    
     if (type === "speed" && speedLvl < 20) {
       const cost = getSpeedUpgradeCost(speedLvl);
       if (displayPoints < cost) return alert("❌ Points မလုံလောက်ပါ!");
       
       try {
-        await addGamePoints(-cost);
         setDisplayPoints((prev: number) => prev - cost);
-        setSpeedLvl(speedLvl + 1);
-        localStorage.setItem("tw_lvl_speed", String(speedLvl + 1));
+        await addGamePoints(-cost);
+        const nextLvl = speedLvl + 1;
+        setSpeedLvl(nextLvl);
+        localStorage.setItem("tw_lvl_speed", String(nextLvl));
       } catch (err) { alert("Upgrade မအောင်မြင်ပါ"); }
     }
   };
@@ -321,5 +321,5 @@ export default function HomePage() {
       </div>
     </AppShell>
   );
-                                                                             }
-            
+    }
+    
