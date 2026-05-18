@@ -5,7 +5,8 @@ import { useApp } from "@/components/AppProvider";
 import { useState, useEffect, useRef } from "react";
 
 export default function HomePage() {
-  const { me, addGamePoints } = useApp(); // Backend Database နှင့် ချိတ်ဆက်ရန်
+  // 🔗useApp Context ထဲက me (User Data) နှင့် addGamePoints ကို ယူသုံးမည်
+  const { me, addGamePoints } = useApp(); 
   
   const botUsername = process.env.NEXT_PUBLIC_BOT_USERNAME || process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME;
   const [copied, setCopied] = useState(false);
@@ -22,8 +23,10 @@ export default function HomePage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // 🕹️ TAPSWAP CORE STATES (Local Storage တွင် Local Save လုပ်မည်)
-  const [points, setPoints] = useState(0);
+  // 🕹️ TAPSWAP CORE STATES
+  // Balance နေရာတွင် Backend ကလာသော မူရင်း Points ကို တိုက်ရိုက် Initial Value ထားမည်
+  const currentDbPoints = (me as any)?.user?.points || (me as any)?.points || 0;
+  const [displayPoints, setDisplayPoints] = useState(currentDbPoints);
   const [energy, setEnergy] = useState(500);
   const [activeTab, setActiveTab] = useState<"earn" | "boost">("earn");
 
@@ -32,42 +35,40 @@ export default function HomePage() {
   const [capLvl, setCapLvl] = useState(1);
   const [speedLvl, setSpeedLvl] = useState(1);
 
-  // UI Effects State
+  // UI Effects State & Refs for Accumulation
   const [tapEffects, setTapEffects] = useState<{ id: number; x: number; y: number }[]>([]);
-  const pointsRef = useRef(points);
+  const accumulatedTapsRef = useRef(0);
 
   // Dynamic Game Stats Calculations
-  const maxEnergy = 500 + (capLvl - 1) * 500; // စစချင်း 500, Level တက်တိုင်း +500
-  const pointsPerTap = 1 + (tapLvl - 1);       // စစချင်း 1 point, Level တက်တိုင်း +1
-  const energyRegenPerSec = 1 + (speedLvl - 1); // စစချင်း 1/s, Level တက်တိုင်း +1/s
+  const maxEnergy = 500 + (capLvl - 1) * 500; 
+  const pointsPerTap = 1 + (tapLvl - 1);       
+  const energyRegenPerSec = 1 + (speedLvl - 1); 
 
-  // Boosters Upgrade Costs Formulas (ဆတိုးတက်သွားမည့် စနစ်)
+  // Boosters Upgrade Costs Formulas
   const getTapUpgradeCost = (lvl: number) => lvl === 1 ? 200 : Math.floor(200 * Math.pow(1.5, lvl - 1));
   const getCapUpgradeCost = (lvl: number) => lvl === 1 ? 200 : Math.floor(200 * Math.pow(1.5, lvl - 1));
   const getSpeedUpgradeCost = (lvl: number) => lvl === 1 ? 2000 : Math.floor(2000 * Math.pow(1.6, lvl - 1));
 
-  // 💾 Load Initial Game Engine Data
+  // 🔄 Backend DB က Points ပြောင်းသွားရင် (ဥပမာ Task လုပ်ပြီးလို့ တက်လာရင်) ဒီမှာပါ လိုက်ပြီး Update ဖြစ်စေရန် Sync လုပ်ခြင်း
+  useEffect(() => {
+    setDisplayPoints(currentDbPoints);
+  }, [currentDbPoints]);
+
+  // 💾 Load Booster Levels & Energy from LocalStorage
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const savedPoints = localStorage.getItem("tw_points") || "0";
     const savedEnergy = localStorage.getItem("tw_energy") || "500";
     const savedTapLvl = localStorage.getItem("tw_lvl_tap") || "1";
     const savedCapLvl = localStorage.getItem("tw_lvl_cap") || "1";
     const savedSpeedLvl = localStorage.getItem("tw_lvl_speed") || "1";
 
-    setPoints(Number(savedPoints));
     setEnergy(Number(savedEnergy));
     setTapLvl(Number(savedTapLvl));
     setCapLvl(Number(savedCapLvl));
     setSpeedLvl(Number(savedSpeedLvl));
   }, []);
 
-  // Sync Points to Ref for background database updates
-  useEffect(() => {
-    pointsRef.current = points;
-  }, [points]);
-
-  // ⚡ AUTOMATIC ENERGY REGENERATION ENGINE (1 Second Interval Loop)
+  // ⚡ AUTOMATIC ENERGY REGENERATION ENGINE (1 Second Loop)
   useEffect(() => {
     const interval = setInterval(() => {
       setEnergy((prev) => {
@@ -81,34 +82,40 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, [maxEnergy, energyRegenPerSec]);
 
-  // 💾 AUTO BACKEND SYNC (၅ စက္ကန့်တစ်ခါ Database ပေါ်သို့ စုပြီး လှမ်းသိမ်းပေးခြင်း)
+  // 💾 AUTO BACKEND SYNC ENGINE (၃ စက္ကန့်တစ်ခါ နှိပ်ထားသမျှ စုပြီး DB ပေါ်တင်မည်)
   useEffect(() => {
     const syncInterval = setInterval(async () => {
-      if (addGamePoints && pointsRef.current > 0) {
+      if (addGamePoints && accumulatedTapsRef.current > 0) {
+        const pointsToSend = accumulatedTapsRef.current;
+        accumulatedTapsRef.current = 0; // Reset ref immediately to handle concurrent taps
         try {
-          await addGamePoints(pointsRef.current);
+          await addGamePoints(pointsToSend);
+          // သတ်မှတ်ချက် အောင်မြင်ရင် useApp() က me user object ထဲမှာ points ကို သွားတိုးပေးပါလိမ့်မယ်
         } catch (e) {
-          console.error("Sync failed", e);
+          console.error("Database sync failed", e);
+          // ကျရှုံးခဲ့လျှင် ref ထဲ ပြန်ပေါင်းထည့်ထားမည်
+          accumulatedTapsRef.current += pointsToSend; 
         }
       }
-    }, 5000);
+    }, 3000);
     return () => clearInterval(syncInterval);
   }, [addGamePoints]);
 
   // 👆 CORE TAP ENGINE
   const handleTap = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (energy < pointsPerTap) return; // Energy မလုံလောက်လျှင် နှိပ်မရပါ
+    if (energy < pointsPerTap) return; 
 
     const nextEnergy = energy - pointsPerTap;
-    const nextPoints = points + pointsPerTap;
-
+    
+    // UI Screen ပေါ်တွင် ချက်ချင်း အရုပ်ပြောင်းလဲတိုးပွားစေရန် State ကို တိုက်ရိုက်ပေါင်းတင်မည်
+    setDisplayPoints((prev) => prev + pointsPerTap);
     setEnergy(nextEnergy);
-    setPoints(nextPoints);
-
     localStorage.setItem("tw_energy", String(nextEnergy));
-    localStorage.setItem("tw_points", String(nextPoints));
 
-    // Floating Text Animations Effect
+    // DB ပေါ်လှမ်းပို့ဖို့ Ref ထဲမှာ စုသိမ်းထားမည်
+    accumulatedTapsRef.current += pointsPerTap;
+
+    // Floating UI Click Text Animations Effect (+1, +2)
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
@@ -120,31 +127,42 @@ export default function HomePage() {
     }, 600);
   };
 
-  // 🚀 BOOST UPGRADE HANDLERS (Max Lvl 20 Boundary Check)
-  const upgradeBooster = (type: "tap" | "cap" | "speed") => {
+  // 🚀 BOOST UPGRADE HANDLERS (ဝယ်ယူပြီးလျှင် DB သို့ ချက်ချင်း Sync လုပ်ရန် သင့်တော်ပါသည်)
+  const upgradeBooster = async (type: "tap" | "cap" | "speed") => {
+    if (!addGamePoints) return;
+
     if (type === "tap" && tapLvl < 20) {
       const cost = getTapUpgradeCost(tapLvl);
-      if (points < cost) return alert("❌ Points မလုံလောက်ပါ!");
-      const next = points - cost;
-      setPoints(next); setTapLvl(tapLvl + 1);
-      localStorage.setItem("tw_points", String(next));
-      localStorage.setItem("tw_lvl_tap", String(tapLvl + 1));
+      if (displayPoints < cost) return alert("❌ Points မလုံလောက်ပါ!");
+      
+      try {
+        await addGamePoints(-cost); // Points ကို DB ထဲကနေ နှုတ်ပစ်မည်
+        setDisplayPoints((prev) => prev - cost);
+        setTapLvl(tapLvl + 1);
+        localStorage.setItem("tw_lvl_tap", String(tapLvl + 1));
+      } catch (err) { alert("Upgrade မအောင်မြင်ပါ"); }
     }
     if (type === "cap" && capLvl < 20) {
       const cost = getCapUpgradeCost(capLvl);
-      if (points < cost) return alert("❌ Points မလုံလောက်ပါ!");
-      const next = points - cost;
-      setPoints(next); setCapLvl(capLvl + 1);
-      localStorage.setItem("tw_points", String(next));
-      localStorage.setItem("tw_lvl_cap", String(capLvl + 1));
+      if (displayPoints < cost) return alert("❌ Points မလုံလောက်ပါ!");
+      
+      try {
+        await addGamePoints(-cost);
+        setDisplayPoints((prev) => prev - cost);
+        setCapLvl(capLvl + 1);
+        localStorage.setItem("tw_lvl_cap", String(capLvl + 1));
+      } catch (err) { alert("Upgrade မအောင်မြင်ပါ"); }
     }
     if (type === "speed" && speedLvl < 20) {
       const cost = getSpeedUpgradeCost(speedLvl);
-      if (points < cost) return alert("❌ Points မလုံလောက်ပါ!");
-      const next = points - cost;
-      setPoints(next); setSpeedLvl(speedLvl + 1);
-      localStorage.setItem("tw_points", String(next));
-      localStorage.setItem("tw_lvl_speed", String(speedLvl + 1));
+      if (displayPoints < cost) return alert("❌ Points မလုံလောက်ပါ!");
+      
+      try {
+        await addGamePoints(-cost);
+        setDisplayPoints((prev) => prev - cost);
+        setSpeedLvl(speedLvl + 1);
+        localStorage.setItem("tw_lvl_speed", String(speedLvl + 1));
+      } catch (err) { alert("Upgrade မအောင်မြင်ပါ"); }
     }
   };
 
@@ -152,17 +170,17 @@ export default function HomePage() {
     <AppShell title="Home">
       <div className="app-container pb-28 flex flex-col justify-between min-h-[78vh] text-white">
         
-        {/* TOP MAIN COIN DISPLAY */}
+        {/* TOP MAIN GLOBAL COIN BALANCE DISPLAY */}
         <div className="text-center mt-6 space-y-1 relative z-10">
           <div className="text-[11px] text-zinc-500 uppercase tracking-[0.2em] font-black">MYAT BALANCE</div>
           <div className="text-4xl font-black font-mono tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white to-zinc-400 flex items-center justify-center gap-2">
-            🪙 {points.toLocaleString()}
+            🪙 {displayPoints.toLocaleString()}
           </div>
         </div>
 
-        {/* 🔄 TABS VIEW RENDERING */}
+        {/* TABS CONTAINER */}
         {activeTab === "earn" ? (
-          /* =================== 🪙 EARN SCREEN =================== */
+          /* =================== 🪙 EARN MAIN SCREEN =================== */
           <div className="flex flex-col items-center justify-center my-auto relative select-none">
             <div className="absolute w-72 h-72 bg-amber-500/10 blur-[90px] rounded-full pointer-events-none" />
 
@@ -178,7 +196,7 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Burst Floating Text Anim Effect */}
+              {/* Burst Floating Text Effects */}
               {tapEffects.map((effect) => (
                 <div
                   key={effect.id}
@@ -215,7 +233,7 @@ export default function HomePage() {
               </div>
               <button
                 onClick={() => upgradeBooster("tap")}
-                disabled={tapLvl >= 20 || points < getTapUpgradeCost(tapLvl)}
+                disabled={tapLvl >= 20 || displayPoints < getTapUpgradeCost(tapLvl)}
                 className="py-2 px-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 disabled:from-zinc-800 disabled:to-zinc-800 text-black disabled:text-zinc-600 text-[11px] font-black font-mono transition-all active:scale-95"
               >
                 {tapLvl >= 20 ? "MAX" : `🪙 ${getTapUpgradeCost(tapLvl).toLocaleString()}`}
@@ -230,7 +248,7 @@ export default function HomePage() {
               </div>
               <button
                 onClick={() => upgradeBooster("cap")}
-                disabled={capLvl >= 20 || points < getCapUpgradeCost(capLvl)}
+                disabled={capLvl >= 20 || displayPoints < getCapUpgradeCost(capLvl)}
                 className="py-2 px-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-600 disabled:from-zinc-800 disabled:to-zinc-800 text-black disabled:text-zinc-600 text-[11px] font-black font-mono transition-all active:scale-95"
               >
                 {capLvl >= 20 ? "MAX" : `🪙 ${getCapUpgradeCost(capLvl).toLocaleString()}`}
@@ -245,7 +263,7 @@ export default function HomePage() {
               </div>
               <button
                 onClick={() => upgradeBooster("speed")}
-                disabled={speedLvl >= 20 || points < getSpeedUpgradeCost(speedLvl)}
+                disabled={speedLvl >= 20 || displayPoints < getSpeedUpgradeCost(speedLvl)}
                 className="py-2 px-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 disabled:from-zinc-800 disabled:to-zinc-800 text-black disabled:text-zinc-600 text-[11px] font-black font-mono transition-all active:scale-95"
               >
                 {speedLvl >= 20 ? "MAX" : `🪙 ${getSpeedUpgradeCost(speedLvl).toLocaleString()}`}
@@ -254,9 +272,8 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* BOTTOM ENERGY BAR & FOOTER HUD */}
+        {/* BOTTOM REALTIME STATUS & LOWER NAV COCKPIT */}
         <div className="w-full max-w-md mx-auto space-y-4">
-          
           {activeTab === "earn" && (
             <div className="px-2 space-y-1.5">
               <div className="flex justify-between items-center font-mono text-[11px] font-black uppercase tracking-wider">
@@ -272,7 +289,6 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* DOCK MENUS */}
           <div className="grid grid-cols-2 gap-2 border border-white/5 bg-zinc-950/80 backdrop-blur-2xl p-1.5 rounded-2xl shadow-2xl">
             <button
               onClick={() => setActiveTab("earn")}
@@ -295,7 +311,6 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* COIN IMPACT FLOATING CSS ANIMATION */}
         <style jsx global>{`
           @keyframes floatUp {
             0% { opacity: 1; transform: translate(-50%, -50%) translateY(0) scale(1); }
@@ -309,5 +324,5 @@ export default function HomePage() {
       </div>
     </AppShell>
   );
-    }
-                               
+      }
+        
