@@ -149,13 +149,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [refresh, getRawTelegramInitData],
   );
 
-  // 🕹️ [FIXED CORE GAME API SYNC] - တကယ့် TapSwap Logic အမှန်အတိုင်း ပြင်ဆင်ထားသည်
+  // 🕹️ [CONNECTED TO TASKS/COMPLETE] - Backend API အသစ်နှင့် လှမ်းချိတ်ထားသည်
   const addGamePoints = useCallback(
     async (pointsEarned: number) => {
       setError(null);
       const rawToken = getRawTelegramInitData();
       
-      // 1. 🔥 React State Mutation မဖြစ်စေဘဲ စနစ်မှန်အတိုင်း Frontend Display ပွိုင့်ကို အရင် realtime တိုးပေးထားမည်
+      // 1. Frontend UI ကို အရင်ပေါင်းပြထားမည်
       setMe((prevMe) => {
         if (!prevMe) return null;
         return {
@@ -168,26 +168,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       });
 
       try {
-        // 2. 🚀 Tap လုပ်ပြီးရလာတဲ့ Points တွေကို သိမ်းဖို့ သီးသန့် API Endpoint (/api/game/add-points) သို့ ပို့ခြင်း
-        // မှတ်ချက်- အကယ်၍ Backend API လမ်းကြောင်းက ကွဲပြားနေပါက "/api/user/add-points" စသဖြင့် ပြောင်းလဲနိုင်ပါသည်
-        const res = await fetch("/api/game/add-points", {
+        // 2. 🚀 ပြင်ဆင်ပြီးသား Backend Task API သို့ ပို့မည် (score က အနှုတ်လည်း လာနိုင်သည် - ဥပမာ Upgrade အတွက်)
+        const res = await fetch("/api/tasks/complete", {
           method: "POST",
           headers: { 
             "Authorization": `Bearer ${rawToken}`,
             "Content-Type": "application/json"
           },
-          body: JSON.stringify({ points: pointsEarned }),
+          body: JSON.stringify({ taskKey: "game_clicker", score: pointsEarned }),
         });
 
-        // အကယ်၍ API လမ်းကြောင်းမရှိသေး၍ Error တက်ခဲ့လျှင်လည်း Database က နောက်ဆုံး Data ကို ပြန်ဆွဲပြီး Sync လုပ်ပေးမည်
-        if (res.ok) {
-          const updatedData = await res.json();
-          if (updatedData && updatedData.user) {
-            setMe(updatedData);
-          }
+        const updatedData = await res.json();
+        
+        if (res.ok && updatedData && updatedData.user) {
+          setMe((prev: any) => {
+            if (!prev) return null;
+            return { ...prev, user: updatedData.user };
+          });
         } else {
-          // API အဆင်မပြေပါက ဒေတာအမှန်ရရန် မူရင်း /api/me ကို ခေါ်ယူပြီး ပွိုင့်ပြန်ညှိမည်
-          await refresh();
+          await refresh(); 
         }
       } catch (e) {
         console.error("Failed to sync game points to database:", e);
@@ -250,5 +249,5 @@ export function useApp() {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error("useApp must be used within AppProvider");
   return ctx;
-    }
-            
+  }
+    
