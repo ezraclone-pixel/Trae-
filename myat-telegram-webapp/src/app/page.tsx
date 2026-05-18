@@ -5,7 +5,7 @@ import { useApp } from "@/components/AppProvider";
 import { useState, useEffect, useRef } from "react";
 
 export default function HomePage() {
-  // 🔗useApp Context ထဲက me (User Data) နှင့် addGamePoints ကို ယူသုံးမည်
+  // 🔗 useApp Context ထဲက me (User Data) နှင့် addGamePoints ကို ယူသုံးမည်
   const { me, addGamePoints } = useApp(); 
   
   const botUsername = process.env.NEXT_PUBLIC_BOT_USERNAME || process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME;
@@ -24,20 +24,19 @@ export default function HomePage() {
   };
 
   // 🕹️ TAPSWAP CORE STATES
-  // Balance နေရာတွင် Backend ကလာသော မူရင်း Points ကို တိုက်ရိုက် Initial Value ထားမည်
   const currentDbPoints = (me as any)?.user?.points || (me as any)?.points || 0;
-  const [displayPoints, setDisplayPoints] = useState(currentDbPoints);
-  const [energy, setEnergy] = useState(500);
+  const [displayPoints, setDisplayPoints] = useState<number>(currentDbPoints);
+  const [energy, setEnergy] = useState<number>(500);
   const [activeTab, setActiveTab] = useState<"earn" | "boost">("earn");
 
   // BOOSTER LEVELS (Max Level 20)
-  const [tapLvl, setTapLvl] = useState(1);
-  const [capLvl, setCapLvl] = useState(1);
-  const [speedLvl, setSpeedLvl] = useState(1);
+  const [tapLvl, setTapLvl] = useState<number>(1);
+  const [capLvl, setCapLvl] = useState<number>(1);
+  const [speedLvl, setSpeedLvl] = useState<number>(1);
 
   // UI Effects State & Refs for Accumulation
   const [tapEffects, setTapEffects] = useState<{ id: number; x: number; y: number }[]>([]);
-  const accumulatedTapsRef = useRef(0);
+  const accumulatedTapsRef = useRef<number>(0);
 
   // Dynamic Game Stats Calculations
   const maxEnergy = 500 + (capLvl - 1) * 500; 
@@ -49,7 +48,7 @@ export default function HomePage() {
   const getCapUpgradeCost = (lvl: number) => lvl === 1 ? 200 : Math.floor(200 * Math.pow(1.5, lvl - 1));
   const getSpeedUpgradeCost = (lvl: number) => lvl === 1 ? 2000 : Math.floor(2000 * Math.pow(1.6, lvl - 1));
 
-  // 🔄 Backend DB က Points ပြောင်းသွားရင် (ဥပမာ Task လုပ်ပြီးလို့ တက်လာရင်) ဒီမှာပါ လိုက်ပြီး Update ဖြစ်စေရန် Sync လုပ်ခြင်း
+  // 🔄 Backend DB က Points ပြောင်းသွားရင် လိုက်ပြီး Update ဖြစ်စေရန် Sync လုပ်ခြင်း
   useEffect(() => {
     setDisplayPoints(currentDbPoints);
   }, [currentDbPoints]);
@@ -71,7 +70,7 @@ export default function HomePage() {
   // ⚡ AUTOMATIC ENERGY REGENERATION ENGINE (1 Second Loop)
   useEffect(() => {
     const interval = setInterval(() => {
-      setEnergy((prev) => {
+      setEnergy((prev: number) => {
         if (prev >= maxEnergy) return maxEnergy;
         const nextEnergy = prev + energyRegenPerSec;
         const finalEnergy = nextEnergy > maxEnergy ? maxEnergy : nextEnergy;
@@ -87,13 +86,11 @@ export default function HomePage() {
     const syncInterval = setInterval(async () => {
       if (addGamePoints && accumulatedTapsRef.current > 0) {
         const pointsToSend = accumulatedTapsRef.current;
-        accumulatedTapsRef.current = 0; // Reset ref immediately to handle concurrent taps
+        accumulatedTapsRef.current = 0; 
         try {
           await addGamePoints(pointsToSend);
-          // သတ်မှတ်ချက် အောင်မြင်ရင် useApp() က me user object ထဲမှာ points ကို သွားတိုးပေးပါလိမ့်မယ်
         } catch (e) {
           console.error("Database sync failed", e);
-          // ကျရှုံးခဲ့လျှင် ref ထဲ ပြန်ပေါင်းထည့်ထားမည်
           accumulatedTapsRef.current += pointsToSend; 
         }
       }
@@ -107,8 +104,8 @@ export default function HomePage() {
 
     const nextEnergy = energy - pointsPerTap;
     
-    // UI Screen ပေါ်တွင် ချက်ချင်း အရုပ်ပြောင်းလဲတိုးပွားစေရန် State ကို တိုက်ရိုက်ပေါင်းတင်မည်
-    setDisplayPoints((prev) => prev + pointsPerTap);
+    // 🛠️ TypeScript Error ရှင်းရန် (prev: number) ဟု ပုံသေ Type သတ်မှတ်ပေးလိုက်သည်
+    setDisplayPoints((prev: number) => prev + pointsPerTap);
     setEnergy(nextEnergy);
     localStorage.setItem("tw_energy", String(nextEnergy));
 
@@ -127,7 +124,7 @@ export default function HomePage() {
     }, 600);
   };
 
-  // 🚀 BOOST UPGRADE HANDLERS (ဝယ်ယူပြီးလျှင် DB သို့ ချက်ချင်း Sync လုပ်ရန် သင့်တော်ပါသည်)
+  // 🚀 BOOST UPGRADE HANDLERS
   const upgradeBooster = async (type: "tap" | "cap" | "speed") => {
     if (!addGamePoints) return;
 
@@ -136,8 +133,8 @@ export default function HomePage() {
       if (displayPoints < cost) return alert("❌ Points မလုံလောက်ပါ!");
       
       try {
-        await addGamePoints(-cost); // Points ကို DB ထဲကနေ နှုတ်ပစ်မည်
-        setDisplayPoints((prev) => prev - cost);
+        await addGamePoints(-cost); 
+        setDisplayPoints((prev: number) => prev - cost);
         setTapLvl(tapLvl + 1);
         localStorage.setItem("tw_lvl_tap", String(tapLvl + 1));
       } catch (err) { alert("Upgrade မအောင်မြင်ပါ"); }
@@ -148,7 +145,7 @@ export default function HomePage() {
       
       try {
         await addGamePoints(-cost);
-        setDisplayPoints((prev) => prev - cost);
+        setDisplayPoints((prev: number) => prev - cost);
         setCapLvl(capLvl + 1);
         localStorage.setItem("tw_lvl_cap", String(capLvl + 1));
       } catch (err) { alert("Upgrade မအောင်မြင်ပါ"); }
@@ -159,7 +156,7 @@ export default function HomePage() {
       
       try {
         await addGamePoints(-cost);
-        setDisplayPoints((prev) => prev - cost);
+        setDisplayPoints((prev: number) => prev - cost);
         setSpeedLvl(speedLvl + 1);
         localStorage.setItem("tw_lvl_speed", String(speedLvl + 1));
       } catch (err) { alert("Upgrade မအောင်မြင်ပါ"); }
@@ -220,7 +217,7 @@ export default function HomePage() {
                     copied ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-white/5 border-white/5 text-zinc-400"
                   }`}
                 >
-                  {copied ? "Copied ✓" : "🔗 Get Free Tickets"}
+                  {copied ? "Copied ✓" : "🔗 Invite Friends"}
                 </button>
               )}
             </div>
@@ -324,5 +321,5 @@ export default function HomePage() {
       </div>
     </AppShell>
   );
-      }
-        
+                                                                             }
+            
