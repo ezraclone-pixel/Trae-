@@ -24,8 +24,6 @@ export default function HomePage() {
 
   // 🕹️ TAPSWAP CORE STATES
   const currentDbPoints = me?.user?.points ?? 0;
-  
-  // Initial state ကို 0 အစား currentDbPoints နဲ့ တန်းစပြီး Flicker ဖြစ်တာကို ကာကွယ်မယ်
   const [displayPoints, setDisplayPoints] = useState<number>(currentDbPoints);
   const [energy, setEnergy] = useState<number>(500);
   const [activeTab, setActiveTab] = useState<"earn" | "boost">("earn");
@@ -38,6 +36,7 @@ export default function HomePage() {
   const [tapEffects, setTapEffects] = useState<{ id: number; x: number; y: number }[]>([]);
   const accumulatedTapsRef = useRef<number>(0);
   const isUpgradingRef = useRef<boolean>(false); 
+  const isSyncingRef = useRef<boolean>(false);
 
   // 🪐 3D TILT EFFECT STATE
   const [tiltStyle, setTiltStyle] = useState<React.CSSProperties>({});
@@ -52,14 +51,14 @@ export default function HomePage() {
   const getCapUpgradeCost = (lvl: number) => lvl === 1 ? 200 : Math.floor(200 * Math.pow(1.5, lvl - 1));
   const getSpeedUpgradeCost = (lvl: number) => lvl === 1 ? 2000 : Math.floor(2000 * Math.pow(1.6, lvl - 1));
 
-  // 🔄 Component စတက်လာချင်း Database ရဲ့ လက်ရှိအမှတ်ကို Sync လုပ်ပေးခြင်း
+  // 🔄 Component စတင်တက်လာချိန် သို့မဟုတ် အမှတ်အသစ်တကယ်ဝင်လာချိန်မှသာ ပြသပေးမည်
   useEffect(() => {
-    if (currentDbPoints > 0 && displayPoints === 0 && accumulatedTapsRef.current === 0) {
+    if (!isSyncingRef.current && accumulatedTapsRef.current === 0 && !isUpgradingRef.current) {
       setDisplayPoints(currentDbPoints);
     }
   }, [currentDbPoints]);
 
-  // 🔄 Booster Level များကိုသာ သီးသန့် Sync လုပ်မည့် Tracker
+  // 🔄 Booster Level Sync Tracker
   useEffect(() => {
     if (me?.user) {
       setTapLvl(Number((me.user as any).tapLevel || localStorage.getItem("tw_lvl_tap") || "1"));
@@ -83,27 +82,28 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, []);
 
-  // 💾 3-SEC AUTO BACKEND SYNC ENGINE (ဒီနေရာမှာ ဒေတာမပျောက်အောင် သေချာ ထိန်းပေးထားပါတယ်)
+  // 💾 3-SEC AUTO BACKEND SYNC ENGINE (ဒီတစ်ခါတော့ တကယ်ငြိမ်သွားပါပြီ)
   useEffect(() => {
     const syncInterval = setInterval(async () => {
       if (addGamePoints && accumulatedTapsRef.current > 0 && !isUpgradingRef.current) {
         const pointsToSend = accumulatedTapsRef.current;
-        accumulatedTapsRef.current = 0; // Backend ဆီ မပို့ခင် ချက်ချင်းရှင်းထုတ်ပြီး Tap ထပ်နှိပ်တာကို စောင့်မယ်
+        accumulatedTapsRef.current = 0; 
         
         try {
+          isSyncingRef.current = true; 
           await addGamePoints(pointsToSend);
-          // API အောင်မြင်သွားရင် displayPoints ကို Database က ပြန်ကျလာတဲ့အမှတ်နဲ့ တစ်ခါတည်း Update ညှိမယ်
-          if (me?.user?.points) {
-            setDisplayPoints(me.user.points + pointsToSend);
-          }
         } catch (e) {
           console.error("Database sync failed", e);
-          accumulatedTapsRef.current += pointsToSend; // ကျရှုံးခဲ့ရင် အမှတ်ပြန်ပေါင်းထည့်မယ်
+          accumulatedTapsRef.current += pointsToSend; 
+        } finally {
+          setTimeout(() => {
+            isSyncingRef.current = false;
+          }, 600);
         }
       }
     }, 3000);
     return () => clearInterval(syncInterval);
-  }, [addGamePoints, me]);
+  }, [addGamePoints]);
 
   // 👆 MULTI-TOUCH CORE TAP ENGINE + NATURAL 3D TILT
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
@@ -396,5 +396,5 @@ export default function HomePage() {
       </div>
     </AppShell>
   );
-  }
-          
+    }
+      
