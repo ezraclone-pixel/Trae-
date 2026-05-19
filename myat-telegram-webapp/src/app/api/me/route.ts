@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getUserIdFromRequest } from "@/lib/auth";
 import { getDailyPeriodKey12pmMyanmar } from "@/lib/telegram";
 
-export const dynamic = "force-dynamic"; // API Cache မငြိအောင် ကာကွယ်ခြင်း
+export const dynamic = "force-dynamic"; 
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
@@ -15,13 +15,10 @@ export async function GET(req: NextRequest) {
   const periodKey = getDailyPeriodKey12pmMyanmar();
 
   try {
-    // 🚀 [အဓိကပြင်ဆင်ချက်] ဒေတာဘေ့စ်ထဲကနေ နာမည်၊ Username နဲ့ ပုံတွေကိုပါ သေသေချာချာ ဆွဲထုတ်ခြင်း
-    // အကယ်၍ မရှိသေးရင်လည်း create လုပ်မယ်၊ ရှိပြီးသားဆိုရင်လည်း လက်ရှိအခြေအနေကိုပါ ဆွဲထုတ်မယ်
     const user = await prisma.user.findUnique({
       where: { telegramId: userId },
     });
 
-    // အကယ်၍ Database ထဲမှာ ယူဆာ လုံးဝမရှိသေးရင် (လူအသစ်ဆိုရင်) တစ်ခါတည်း ဆောက်ပေးမယ်
     let finalUser = user;
     if (!user) {
       finalUser = await prisma.user.create({
@@ -29,11 +26,11 @@ export async function GET(req: NextRequest) {
           telegramId: userId,
           points: 0,
           reservedPoints: 0,
-        },
+          lifetime_points: 0, // SQL အသစ်အတွက် ထည့်သွင်းခြင်း
+        } as any, // Prisma schema update မလုပ်ရသေးရင် error မတက်အောင် cast ထားခြင်း
       });
     }
 
-    // Task တွေနဲ့ Referral တွေကို ပြိုင်တူ ဆွဲထုတ်ခြင်း
     const [daily, once, referralCount] = await Promise.all([
       prisma.taskCompletion.findMany({
         where: { userId, periodKey, taskKey: { in: ["daily_login", "phrase"] } },
@@ -52,11 +49,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       user: {
         telegramId: finalUser!.telegramId,
-        username: finalUser!.username || null, // NULL ကို သန့်သန့်ရှင်းရှင်း ပို့ပေးခြင်း
+        username: finalUser!.username || null, 
         firstName: finalUser!.firstName || "Telegram User",
         lastName: finalUser!.lastName || null,
-        photoUrl: finalUser!.photoUrl || null, // Frontend မှာ Avatar ပုံ ပေါ်လာစေရန်
-        points: finalUser!.points,
+        photoUrl: finalUser!.photoUrl || null, 
+        points: finalUser!.points, // လက်ရှိသုံးလို့ရမယ့် Home & Profile က Balance
+        lifetime_points: (finalUser as any)!.lifetime_points ?? finalUser!.points, // Leaderboard အတွက်
         reservedPoints: finalUser!.reservedPoints,
         availablePoints: finalUser!.points - finalUser!.reservedPoints,
         referrerId: finalUser!.referrerId,
@@ -80,5 +78,5 @@ export async function GET(req: NextRequest) {
     console.error("Error in /api/me:", error);
     return NextResponse.json({ error: "Internal Server Error", details: error.message }, { status: 500 });
   }
-                }
-      
+        }
+                                                            
