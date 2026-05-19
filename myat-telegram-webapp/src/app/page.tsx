@@ -28,7 +28,7 @@ export default function HomePage() {
   const [energy, setEnergy] = useState<number>(500);
   const [activeTab, setActiveTab] = useState<"earn" | "boost">("earn");
 
-  // 🚀 BOOSTER LEVELS (Database ကနေ တိုက်ရိုက်ယူပြီး မရှိမှ Level 1 ထားမည်)
+  // 🚀 BOOSTER LEVELS
   const [tapLvl, setTapLvl] = useState<number>(1);
   const [capLvl, setCapLvl] = useState<number>(1);
   const [speedLvl, setSpeedLvl] = useState<number>(1);
@@ -46,11 +46,10 @@ export default function HomePage() {
   const getCapUpgradeCost = (lvl: number) => lvl === 1 ? 200 : Math.floor(200 * Math.pow(1.5, lvl - 1));
   const getSpeedUpgradeCost = (lvl: number) => lvl === 1 ? 2000 : Math.floor(2000 * Math.pow(1.6, lvl - 1));
 
-  // 🔄 Database က Points နှင့် Levels ပြောင်းလဲမှုများကို Sync လုပ်ခြင်း
+  // 🔄 Database Sync Tracker
   useEffect(() => {
     setDisplayPoints(currentDbPoints);
     
-    // Database schema ထဲမှာ levels သိမ်းထားရင် ယူသုံးရန် (မရှိရင် localstorage သို့မဟုတ် default 1 ယူမည်)
     if (me?.user) {
       setTapLvl(Number((me.user as any).tapLevel || localStorage.getItem("tw_lvl_tap") || "1"));
       setCapLvl(Number((me.user as any).capLevel || localStorage.getItem("tw_lvl_cap") || "1"));
@@ -58,28 +57,22 @@ export default function HomePage() {
     }
   }, [currentDbPoints, me]);
 
-  // Load Initial Energy 
+  // ⚡ 🌟 REALTIME ENERGY SYNC LOOP (AppProvider က တိုးပေးလိုက်တဲ့ အားကို ၀.၂ စက္ကန့်တစ်ခါ လှမ်းဖတ်မည်)
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const savedEnergy = localStorage.getItem("tw_energy") || "500";
-    setEnergy(Number(savedEnergy));
+    
+    const syncEnergyFromStorage = () => {
+      const savedEnergy = localStorage.getItem("tw_energy") || "500";
+      setEnergy(Number(savedEnergy));
+    };
+
+    syncEnergyFromStorage(); // Initial load
+    const interval = setInterval(syncEnergyFromStorage, 200);
+
+    return () => clearInterval(interval);
   }, []);
 
-  // ⚡ AUTOMATIC ENERGY REGENERATION ENGINE (1 Second Loop)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setEnergy((prev: number) => {
-        if (prev >= maxEnergy) return maxEnergy;
-        const nextEnergy = prev + energyRegenPerSec;
-        const finalEnergy = nextEnergy > maxEnergy ? maxEnergy : nextEnergy;
-        localStorage.setItem("tw_energy", String(finalEnergy));
-        return finalEnergy;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [maxEnergy, energyRegenPerSec]);
-
-  // 💾 3-SEC AUTO BACKEND SYNC ENGINE (နှိပ်သမျှပွိုင့်တွေ DB ပေါ်တင်ပြီး Sync လုပ်မည့်နေရာ)
+  // 💾 3-SEC AUTO BACKEND SYNC ENGINE
   useEffect(() => {
     const syncInterval = setInterval(async () => {
       if (addGamePoints && accumulatedTapsRef.current > 0) {
@@ -96,29 +89,47 @@ export default function HomePage() {
     return () => clearInterval(syncInterval);
   }, [addGamePoints]);
 
-  // 👆 CORE TAP ENGINE
-  const handleTap = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (energy < pointsPerTap) return; 
-
-    const nextEnergy = energy - pointsPerTap;
-    setDisplayPoints((prev: number) => prev + pointsPerTap);
-    setEnergy(nextEnergy);
-    localStorage.setItem("tw_energy", String(nextEnergy));
-
-    accumulatedTapsRef.current += pointsPerTap;
-
+  // 👆 🌟 MULTI-TOUCH CORE TAP ENGINE (လက်နှစ်ချောင်း/သုံးချောင်း ပြိုင်တူနှိပ်လို့ရစေမည့် Logic)
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    e.preventDefault(); // Zoom ဖြစ်သွားတာနှင့် Ghost Clicks များကို ကာကွယ်ရန်
+    
     const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const newEffect = { id: Date.now() + Math.random(), x, y };
+    const touches = Array.from(e.changedTouches);
+    
+    let currentEnergy = Number(localStorage.getItem("tw_energy") || energy);
+    let totalAddedPoints = 0;
+    const newEffects: { id: number; x: number; y: number }[] = [];
 
-    setTapEffects((prev) => [...prev, newEffect]);
-    setTimeout(() => {
-      setTapEffects((prev) => prev.filter((effect) => effect.id !== newEffect.id));
-    }, 600);
+    touches.forEach((touch) => {
+      if (currentEnergy < pointsPerTap) return; 
+
+      currentEnergy -= pointsPerTap;
+      totalAddedPoints += pointsPerTap;
+
+      // လက်ချောင်းတစ်ချောင်းစီရဲ့ နေရာအလိုက် Floating Effect ပြရန်
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
+      newEffects.push({ id: Date.now() + Math.random(), x, y });
+    });
+
+    if (totalAddedPoints === 0) return;
+
+    // States များကို တစ်ပြိုင်တည်း Update လုပ်ခြင်း
+    setDisplayPoints((prev: number) => prev + totalAddedPoints);
+    setEnergy(currentEnergy);
+    localStorage.setItem("tw_energy", String(currentEnergy));
+    accumulatedTapsRef.current += totalAddedPoints;
+
+    setTapEffects((prev) => [...prev, ...newEffects]);
+
+    newEffects.forEach((eff) => {
+      setTimeout(() => {
+        setTapEffects((prev) => prev.filter((effect) => effect.id !== eff.id));
+      }, 600);
+    });
   };
 
-  // 🚀 BOOST UPGRADE HANDLERS (Database မှာပါ အနှုတ်ပြပြီး သွားသိမ်းပေးမည့် Logic)
+  // 🚀 BOOST UPGRADE HANDLERS
   const upgradeBooster = async (type: "tap" | "cap" | "speed") => {
     if (!addGamePoints) return;
 
@@ -128,7 +139,6 @@ export default function HomePage() {
       
       try {
         setDisplayPoints((prev: number) => prev - cost);
-        // 📝 Backend ရဲ့ tasks/complete ထံသို့ ပွိုင့်အနှုတ်တန်ဖိုးပို့ပြီး Level ပါ တိုးခိုင်းမည်
         await addGamePoints(-cost); 
         const nextLvl = tapLvl + 1;
         setTapLvl(nextLvl);
@@ -165,7 +175,7 @@ export default function HomePage() {
 
   return (
     <AppShell title="Home">
-      <div className="app-container pb-28 flex flex-col justify-between min-h-[78vh] text-white">
+      <div className="app-container pb-28 flex flex-col justify-between min-h-[78vh] text-white select-none touch-none">
         
         {/* TOP MAIN GLOBAL COIN BALANCE DISPLAY */}
         <div className="text-center mt-6 space-y-1 relative z-10">
@@ -181,12 +191,12 @@ export default function HomePage() {
           <div className="flex flex-col items-center justify-center my-auto relative select-none">
             <div className="absolute w-72 h-72 bg-amber-500/10 blur-[90px] rounded-full pointer-events-none" />
 
-            {/* 🔥 TAP COIN */}
+            {/* 🔥 TAP COIN (onTouchStart သို့ ပြောင်းလဲထားသည်) */}
             <div 
-              onClick={handleTap}
-              className="relative w-64 h-64 rounded-full bg-gradient-to-b from-amber-300 via-amber-500 to-amber-700 p-[3px] shadow-[0_0_50px_rgba(245,158,11,0.2)] active:scale-[0.94] transition-all cursor-pointer group"
+              onTouchStart={handleTouchStart}
+              className="relative w-64 h-64 rounded-full bg-gradient-to-b from-amber-300 via-amber-500 to-amber-700 p-[3px] shadow-[0_0_50px_rgba(245,158,11,0.2)] active:scale-[0.94] transition-all cursor-pointer group select-none touch-none"
             >
-              <div className="w-full h-full rounded-full bg-[#0d0e12] flex items-center justify-center relative overflow-hidden">
+              <div className="w-full h-full rounded-full bg-[#0d0e12] flex items-center justify-center relative overflow-hidden pointer-events-none">
                 <div className="w-[88%] h-[88%] rounded-full border border-amber-500/20 bg-gradient-to-br from-amber-500/5 to-transparent flex flex-col items-center justify-center">
                   <span className="text-7xl filter drop-shadow-[0_0_15px_rgba(245,158,11,0.5)] select-none">🪙</span>
                   <span className="text-[10px] font-black text-amber-500/40 tracking-[0.2em] mt-3 uppercase">Powered By Myat</span>
@@ -321,5 +331,5 @@ export default function HomePage() {
       </div>
     </AppShell>
   );
-    }
-    
+        }
+        
