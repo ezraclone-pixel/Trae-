@@ -36,6 +36,9 @@ export default function HomePage() {
   const [tapEffects, setTapEffects] = useState<{ id: number; x: number; y: number }[]>([]);
   const accumulatedTapsRef = useRef<number>(0);
 
+  // 🪐 3D TILT EFFECT STATE (နှိပ်သည့်နေရာအလိုက် သဘာဝကျကျ စောင်းစေရန်)
+  const [tiltStyle, setTiltStyle] = useState<React.CSSProperties>({});
+
   // Dynamic Game Stats Calculations
   const maxEnergy = 500 + (capLvl - 1) * 500; 
   const pointsPerTap = 1 + (tapLvl - 1);       
@@ -89,7 +92,7 @@ export default function HomePage() {
     return () => clearInterval(syncInterval);
   }, [addGamePoints]);
 
-  // 👆 MULTI-TOUCH CORE TAP ENGINE (Zoom & Scroll မဖြစ်အောင် ထိန်းထားသည်)
+  // 👆 MULTI-TOUCH CORE TAP ENGINE + NATURAL 3D TILT
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     e.preventDefault(); 
     
@@ -99,6 +102,28 @@ export default function HomePage() {
     let currentEnergy = Number(localStorage.getItem("tw_energy") || energy);
     let totalAddedPoints = 0;
     const newEffects: { id: number; x: number; y: number }[] = [];
+
+    // 🌟 3D TILT MATHEMATICS (ထိလိုက်တဲ့ Coordinate ပေါ်မူတည်ပြီး Angle တွက်ချက်ပုံ)
+    if (touches.length > 0) {
+      const lastTouch = touches[touches.length - 1];
+      // ဗဟိုချက် (Center) မှ ကွာဝေးသော အကွာအဝေးကို ရှာခြင်း
+      const offsetX = lastTouch.clientX - rect.left - rect.width / 2;
+      const offsetY = lastTouch.clientY - rect.top - rect.height / 2;
+      
+      // အများဆုံး ၁၅ ဒီဂရီအထိ စောင်းခွင့်ပေးပြီး Perspective ချိန်ညှိခြင်း
+      const rotateX = -(offsetY / (rect.height / 2)) * 15;
+      const rotateY = (offsetX / (rect.width / 2)) * 15;
+
+      setTiltStyle({
+        transform: `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(0.95)`,
+        transition: "transform 0.05s ease-out",
+      });
+
+      // ဖုန်းရဲ့ Native Haptic Vibration ကိုပါ စည်းချက်ကျကျ တုန်ခါစေရန် လှမ်းခေါ်ခြင်း
+      if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) {
+        window.navigator.vibrate(12); 
+      }
+    }
 
     touches.forEach((touch) => {
       if (currentEnergy < pointsPerTap) return; 
@@ -113,6 +138,7 @@ export default function HomePage() {
 
     if (totalAddedPoints === 0) return;
 
+    // TypeScript Build အဆင်ပြေစေရန် 'prev' ကို Type တိကျစွာ သတ်မှတ်
     setDisplayPoints((prev: number) => prev + totalAddedPoints);
     setEnergy(currentEnergy);
     localStorage.setItem("tw_energy", String(currentEnergy));
@@ -124,6 +150,14 @@ export default function HomePage() {
       setTimeout(() => {
         setTapEffects((prev) => prev.filter((effect) => effect.id !== eff.id));
       }, 600);
+    });
+  };
+
+  // 🌟 လက်ပြန်လွှတ်လိုက်လျှင် Spring Physics အတိုင်း မူလပုံစံသို့ အိအိလေး ပြန်ကန်ထွက်လာစေရန်
+  const handleTouchEnd = () => {
+    setTiltStyle({
+      transform: "perspective(1000px) rotateX(0deg) rotateY(0deg) scale(1)",
+      transition: "transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
     });
   };
 
@@ -173,7 +207,6 @@ export default function HomePage() {
 
   return (
     <AppShell title="Home">
-      {/* 🛠️ Layout Fix: h-[calc(100vh-60px)] နဲ့ flex-col သုံးပြီး screen အပြည့်ထဲမှာတင် ခလုတ်တွေ အောက်ခြေကပ်နေအောင် ညှိထားသည် */}
       <div className="app-container w-full max-w-md mx-auto px-4 flex flex-col justify-between h-[calc(100vh-60px)] text-white select-none overflow-hidden relative pb-4">
         
         {/* TOP MAIN GLOBAL COIN BALANCE DISPLAY */}
@@ -188,14 +221,16 @@ export default function HomePage() {
         <div className="flex-1 flex flex-col justify-center items-center w-full">
           {activeTab === "earn" ? (
             /* =================== 🪙 EARN MAIN SCREEN =================== */
-            <div className="flex flex-col items-center justify-center relative w-full select-none">
+            <div className="flex flex-col items-center justify-center relative w-full select-none" style={{ perspective: "1000px" }}>
               <div className="absolute w-64 h-64 bg-amber-500/10 blur-[90px] rounded-full pointer-events-none" />
 
-              {/* 🔥 TAP COIN */}
+              {/* 🔥 TAP COIN (3D TILT STYLE ဖြင့် ချိတ်ဆက်ထားသည်) */}
               <div 
                 onTouchStart={handleTouchStart}
-                className="relative w-56 h-56 sm:w-64 sm:h-64 rounded-full bg-gradient-to-b from-amber-300 via-amber-500 to-amber-700 p-[3px] shadow-[0_0_40px_rgba(245,158,11,0.2)] active:scale-[0.94] transition-all cursor-pointer group select-none touch-none"
-                style={{ touchAction: "none" }} // UI အဆင့်မှာပါ Zoom ဆွဲတာ လုံးဝပိတ်ထားသည်
+                onTouchEnd={handleTouchEnd}
+                onTouchCancel={handleTouchEnd}
+                className="relative w-56 h-56 sm:w-64 sm:h-64 rounded-full bg-gradient-to-b from-amber-300 via-amber-500 to-amber-700 p-[3px] shadow-[0_0_40px_rgba(245,158,11,0.2)] cursor-pointer group select-none touch-none will-change-transform"
+                style={{ ...tiltStyle, touchAction: "none" }}
               >
                 <div className="w-full h-full rounded-full bg-[#0d0e12] flex items-center justify-center relative overflow-hidden pointer-events-none">
                   <div className="w-[88%] h-[88%] rounded-full border border-amber-500/20 bg-gradient-to-br from-amber-500/5 to-transparent flex flex-col items-center justify-center">
@@ -298,7 +333,7 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* 🌟 EARN / BOOST TABS (အောက်ခြေမှာ အမြဲတမ်း ငြိမ်နေစေရန် သေသေချာချာ နေရာချထားသည်) */}
+          {/* EARN / BOOST TABS */}
           <div className="grid grid-cols-2 gap-2 border border-white/5 bg-zinc-950/90 backdrop-blur-2xl p-1 rounded-xl shadow-2xl relative z-20">
             <button
               onClick={() => setActiveTab("earn")}
@@ -335,4 +370,4 @@ export default function HomePage() {
     </AppShell>
   );
     }
-                
+    
