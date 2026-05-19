@@ -22,9 +22,11 @@ export default function HomePage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // 🕹️ TAPSWAP CORE STATES (အမှတ် ပြန်ပြန်ကျမသွားအောင် ပြင်ဆင်ပြီး)
+  // 🕹️ TAPSWAP CORE STATES
   const currentDbPoints = me?.user?.points ?? 0;
-  const [displayPoints, setDisplayPoints] = useState<number>(0);
+  
+  // Initial state ကို 0 အစား currentDbPoints နဲ့ တန်းစပြီး Flicker ဖြစ်တာကို ကာကွယ်မယ်
+  const [displayPoints, setDisplayPoints] = useState<number>(currentDbPoints);
   const [energy, setEnergy] = useState<number>(500);
   const [activeTab, setActiveTab] = useState<"earn" | "boost">("earn");
 
@@ -35,7 +37,7 @@ export default function HomePage() {
 
   const [tapEffects, setTapEffects] = useState<{ id: number; x: number; y: number }[]>([]);
   const accumulatedTapsRef = useRef<number>(0);
-  const isUpgradingRef = useRef<boolean>(false); // Upgrade လုပ်နေစဉ် အမှတ် ခဏငြိမ်နေစေရန် Guard
+  const isUpgradingRef = useRef<boolean>(false); 
 
   // 🪐 3D TILT EFFECT STATE
   const [tiltStyle, setTiltStyle] = useState<React.CSSProperties>({});
@@ -50,19 +52,21 @@ export default function HomePage() {
   const getCapUpgradeCost = (lvl: number) => lvl === 1 ? 200 : Math.floor(200 * Math.pow(1.5, lvl - 1));
   const getSpeedUpgradeCost = (lvl: number) => lvl === 1 ? 2000 : Math.floor(2000 * Math.pow(1.6, lvl - 1));
 
-  // 🔄 Database Sync Tracker (Flickering ပြဿနာကို ဖြေရှင်းသည့် နေရာ)
+  // 🔄 Component စတက်လာချင်း Database ရဲ့ လက်ရှိအမှတ်ကို Sync လုပ်ပေးခြင်း
   useEffect(() => {
-    // အကယ်၍ Upgrade လုပ်နေတုန်း သို့မဟုတ် Tap နှိပ်ထားတဲ့ အမှတ်တွေ ကျန်သေးရင် Database က အမှတ်ဟောင်းကို အတင်းဆွဲမချခိုင်းဘူး
-    if (accumulatedTapsRef.current === 0 && !isUpgradingRef.current) {
+    if (currentDbPoints > 0 && displayPoints === 0 && accumulatedTapsRef.current === 0) {
       setDisplayPoints(currentDbPoints);
     }
-    
+  }, [currentDbPoints]);
+
+  // 🔄 Booster Level များကိုသာ သီးသန့် Sync လုပ်မည့် Tracker
+  useEffect(() => {
     if (me?.user) {
       setTapLvl(Number((me.user as any).tapLevel || localStorage.getItem("tw_lvl_tap") || "1"));
       setCapLvl(Number((me.user as any).capLevel || localStorage.getItem("tw_lvl_cap") || "1"));
       setSpeedLvl(Number((me.user as any).speedLevel || localStorage.getItem("tw_lvl_speed") || "1"));
     }
-  }, [currentDbPoints, me]);
+  }, [me]);
 
   // ⚡ REALTIME ENERGY SYNC LOOP
   useEffect(() => {
@@ -79,22 +83,27 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, []);
 
-  // 💾 3-SEC AUTO BACKEND SYNC ENGINE
+  // 💾 3-SEC AUTO BACKEND SYNC ENGINE (ဒီနေရာမှာ ဒေတာမပျောက်အောင် သေချာ ထိန်းပေးထားပါတယ်)
   useEffect(() => {
     const syncInterval = setInterval(async () => {
       if (addGamePoints && accumulatedTapsRef.current > 0 && !isUpgradingRef.current) {
         const pointsToSend = accumulatedTapsRef.current;
-        accumulatedTapsRef.current = 0; 
+        accumulatedTapsRef.current = 0; // Backend ဆီ မပို့ခင် ချက်ချင်းရှင်းထုတ်ပြီး Tap ထပ်နှိပ်တာကို စောင့်မယ်
+        
         try {
           await addGamePoints(pointsToSend);
+          // API အောင်မြင်သွားရင် displayPoints ကို Database က ပြန်ကျလာတဲ့အမှတ်နဲ့ တစ်ခါတည်း Update ညှိမယ်
+          if (me?.user?.points) {
+            setDisplayPoints(me.user.points + pointsToSend);
+          }
         } catch (e) {
           console.error("Database sync failed", e);
-          accumulatedTapsRef.current += pointsToSend; 
+          accumulatedTapsRef.current += pointsToSend; // ကျရှုံးခဲ့ရင် အမှတ်ပြန်ပေါင်းထည့်မယ်
         }
       }
     }, 3000);
     return () => clearInterval(syncInterval);
-  }, [addGamePoints]);
+  }, [addGamePoints, me]);
 
   // 👆 MULTI-TOUCH CORE TAP ENGINE + NATURAL 3D TILT
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
@@ -159,11 +168,10 @@ export default function HomePage() {
     });
   };
 
-  // 🚀 BOOST UPGRADE HANDLERS (Flicker မဖြစ်အောင် အစအဆုံး Logic ပြင်ဆင်ပြီး)
+  // 🚀 BOOST UPGRADE HANDLERS
   const upgradeBooster = async (type: "tap" | "cap" | "speed") => {
     if (!addGamePoints || isUpgradingRef.current) return;
 
-    // အရင်စုထားတဲ့ Tap အမှတ်တွေရှိရင် Backend ဆီ အရင်ပို့ပြီး ရှင်းထုတ်ပစ်မယ်
     if (accumulatedTapsRef.current > 0) {
       const tempTaps = accumulatedTapsRef.current;
       accumulatedTapsRef.current = 0;
@@ -388,5 +396,5 @@ export default function HomePage() {
       </div>
     </AppShell>
   );
-                                                                                             }
-    
+  }
+          
