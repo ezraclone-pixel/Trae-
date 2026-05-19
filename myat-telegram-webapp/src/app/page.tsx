@@ -57,7 +57,7 @@ export default function HomePage() {
     }
   }, [currentDbPoints, me]);
 
-  // ⚡ 🌟 REALTIME ENERGY SYNC LOOP (AppProvider က တိုးပေးလိုက်တဲ့ အားကို ၀.၂ စက္ကန့်တစ်ခါ လှမ်းဖတ်မည်)
+  // ⚡ REALTIME ENERGY SYNC LOOP
   useEffect(() => {
     if (typeof window === "undefined") return;
     
@@ -66,7 +66,7 @@ export default function HomePage() {
       setEnergy(Number(savedEnergy));
     };
 
-    syncEnergyFromStorage(); // Initial load
+    syncEnergyFromStorage();
     const interval = setInterval(syncEnergyFromStorage, 200);
 
     return () => clearInterval(interval);
@@ -89,9 +89,9 @@ export default function HomePage() {
     return () => clearInterval(syncInterval);
   }, [addGamePoints]);
 
-  // 👆 🌟 MULTI-TOUCH CORE TAP ENGINE (လက်နှစ်ချောင်း/သုံးချောင်း ပြိုင်တူနှိပ်လို့ရစေမည့် Logic)
+  // 👆 MULTI-TOUCH CORE TAP ENGINE (Zoom & Scroll မဖြစ်အောင် ထိန်းထားသည်)
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    e.preventDefault(); // Zoom ဖြစ်သွားတာနှင့် Ghost Clicks များကို ကာကွယ်ရန်
+    e.preventDefault(); 
     
     const rect = e.currentTarget.getBoundingClientRect();
     const touches = Array.from(e.changedTouches);
@@ -106,7 +106,6 @@ export default function HomePage() {
       currentEnergy -= pointsPerTap;
       totalAddedPoints += pointsPerTap;
 
-      // လက်ချောင်းတစ်ချောင်းစီရဲ့ နေရာအလိုက် Floating Effect ပြရန်
       const x = touch.clientX - rect.left;
       const y = touch.clientY - rect.top;
       newEffects.push({ id: Date.now() + Math.random(), x, y });
@@ -114,7 +113,6 @@ export default function HomePage() {
 
     if (totalAddedPoints === 0) return;
 
-    // States များကို တစ်ပြိုင်တည်း Update လုပ်ခြင်း
     setDisplayPoints((prev: number) => prev + totalAddedPoints);
     setEnergy(currentEnergy);
     localStorage.setItem("tw_energy", String(currentEnergy));
@@ -175,10 +173,11 @@ export default function HomePage() {
 
   return (
     <AppShell title="Home">
-      <div className="app-container pb-28 flex flex-col justify-between min-h-[78vh] text-white select-none touch-none">
+      {/* 🛠️ Layout Fix: h-[calc(100vh-60px)] နဲ့ flex-col သုံးပြီး screen အပြည့်ထဲမှာတင် ခလုတ်တွေ အောက်ခြေကပ်နေအောင် ညှိထားသည် */}
+      <div className="app-container w-full max-w-md mx-auto px-4 flex flex-col justify-between h-[calc(100vh-60px)] text-white select-none overflow-hidden relative pb-4">
         
         {/* TOP MAIN GLOBAL COIN BALANCE DISPLAY */}
-        <div className="text-center mt-6 space-y-1 relative z-10">
+        <div className="text-center mt-4 space-y-1 relative z-10 flex-shrink-0">
           <div className="text-[11px] text-zinc-500 uppercase tracking-[0.2em] font-black">MYAT BALANCE</div>
           <div className="text-4xl font-black font-mono tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white to-zinc-400 flex items-center justify-center gap-2">
             🪙 {displayPoints.toLocaleString()}
@@ -186,108 +185,111 @@ export default function HomePage() {
         </div>
 
         {/* TABS CONTAINER */}
-        {activeTab === "earn" ? (
-          /* =================== 🪙 EARN MAIN SCREEN =================== */
-          <div className="flex flex-col items-center justify-center my-auto relative select-none">
-            <div className="absolute w-72 h-72 bg-amber-500/10 blur-[90px] rounded-full pointer-events-none" />
+        <div className="flex-1 flex flex-col justify-center items-center w-full">
+          {activeTab === "earn" ? (
+            /* =================== 🪙 EARN MAIN SCREEN =================== */
+            <div className="flex flex-col items-center justify-center relative w-full select-none">
+              <div className="absolute w-64 h-64 bg-amber-500/10 blur-[90px] rounded-full pointer-events-none" />
 
-            {/* 🔥 TAP COIN (onTouchStart သို့ ပြောင်းလဲထားသည်) */}
-            <div 
-              onTouchStart={handleTouchStart}
-              className="relative w-64 h-64 rounded-full bg-gradient-to-b from-amber-300 via-amber-500 to-amber-700 p-[3px] shadow-[0_0_50px_rgba(245,158,11,0.2)] active:scale-[0.94] transition-all cursor-pointer group select-none touch-none"
-            >
-              <div className="w-full h-full rounded-full bg-[#0d0e12] flex items-center justify-center relative overflow-hidden pointer-events-none">
-                <div className="w-[88%] h-[88%] rounded-full border border-amber-500/20 bg-gradient-to-br from-amber-500/5 to-transparent flex flex-col items-center justify-center">
-                  <span className="text-7xl filter drop-shadow-[0_0_15px_rgba(245,158,11,0.5)] select-none">🪙</span>
-                  <span className="text-[10px] font-black text-amber-500/40 tracking-[0.2em] mt-3 uppercase">Powered By Myat</span>
+              {/* 🔥 TAP COIN */}
+              <div 
+                onTouchStart={handleTouchStart}
+                className="relative w-56 h-56 sm:w-64 sm:h-64 rounded-full bg-gradient-to-b from-amber-300 via-amber-500 to-amber-700 p-[3px] shadow-[0_0_40px_rgba(245,158,11,0.2)] active:scale-[0.94] transition-all cursor-pointer group select-none touch-none"
+                style={{ touchAction: "none" }} // UI အဆင့်မှာပါ Zoom ဆွဲတာ လုံးဝပိတ်ထားသည်
+              >
+                <div className="w-full h-full rounded-full bg-[#0d0e12] flex items-center justify-center relative overflow-hidden pointer-events-none">
+                  <div className="w-[88%] h-[88%] rounded-full border border-amber-500/20 bg-gradient-to-br from-amber-500/5 to-transparent flex flex-col items-center justify-center">
+                    <span className="text-6xl sm:text-7xl filter drop-shadow-[0_0_15px_rgba(245,158,11,0.5)] select-none">🪙</span>
+                    <span className="text-[9px] font-black text-amber-500/40 tracking-[0.2em] mt-3 uppercase">Powered By Myat</span>
+                  </div>
                 </div>
+
+                {/* Burst Floating Text Effects */}
+                {tapEffects.map((effect) => (
+                  <div
+                    key={effect.id}
+                    className="absolute pointer-events-none text-white font-black font-mono text-2xl filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] animate-float-up"
+                    style={{ left: effect.x, top: effect.y, transform: 'translate(-50%, -50%)' }}
+                  >
+                    +{pointsPerTap}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            /* =================== 🚀 BOOST SCREEN =================== */
+            <div className="w-full space-y-2.5 py-2 overflow-y-auto max-h-[50vh] px-1">
+              <div className="flex justify-between items-center mb-1">
+                <h2 className="text-xs font-black tracking-widest text-zinc-500 uppercase">🚀 Upgrades & Boosters</h2>
+                {referralLink && (
+                  <button
+                    onClick={handleCopy}
+                    className={`py-1 px-2.5 rounded-lg text-[9px] font-black uppercase tracking-wider border ${
+                      copied ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-white/5 border-white/5 text-zinc-400"
+                    }`}
+                  >
+                    {copied ? "Copied ✓" : "🔗 Invite Friends"}
+                  </button>
+                )}
               </div>
 
-              {/* Burst Floating Text Effects */}
-              {tapEffects.map((effect) => (
-                <div
-                  key={effect.id}
-                  className="absolute pointer-events-none text-white font-black font-mono text-2xl filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] animate-float-up"
-                  style={{ left: effect.x, top: effect.y, transform: 'translate(-50%, -50%)' }}
-                >
-                  +{pointsPerTap}
+              {/* 1. Multitap Boost */}
+              <div className="bg-zinc-900/60 border border-white/5 p-3 rounded-2xl flex justify-between items-center backdrop-blur-xl">
+                <div>
+                  <div className="text-xs font-black text-white flex items-center gap-1.5">👆 Multitap <span className="text-[10px] text-amber-400 font-mono">Lvl {tapLvl}/20</span></div>
+                  <div className="text-[10px] text-zinc-500 mt-0.5">Increase points per tap. (+1)</div>
                 </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          /* =================== 🚀 BOOST SCREEN =================== */
-          <div className="flex-1 my-6 space-y-3 relative z-10 max-w-md w-full mx-auto px-2 overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xs font-black tracking-widest text-zinc-500 uppercase">🚀 Upgrades & Boosters</h2>
-              {referralLink && (
                 <button
-                  onClick={handleCopy}
-                  className={`py-1 px-2.5 rounded-lg text-[9px] font-black uppercase tracking-wider border ${
-                    copied ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-white/5 border-white/5 text-zinc-400"
-                  }`}
+                  onClick={() => upgradeBooster("tap")}
+                  disabled={tapLvl >= 20 || displayPoints < getTapUpgradeCost(tapLvl)}
+                  className="py-1.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 disabled:from-zinc-800 disabled:to-zinc-800 text-black disabled:text-zinc-600 text-[11px] font-black font-mono transition-all active:scale-95"
                 >
-                  {copied ? "Copied ✓" : "🔗 Invite Friends"}
+                  {tapLvl >= 20 ? "MAX" : `${getTapUpgradeCost(tapLvl).toLocaleString()}`}
                 </button>
-              )}
-            </div>
-
-            {/* 1. Multitap Boost */}
-            <div className="bg-zinc-900/60 border border-white/5 p-3.5 rounded-2xl flex justify-between items-center backdrop-blur-xl">
-              <div>
-                <div className="text-xs font-black text-white flex items-center gap-1.5">👆 Multitap <span className="text-[10px] text-amber-400 font-mono">Lvl {tapLvl}/20</span></div>
-                <div className="text-[10px] text-zinc-500 mt-0.5">Increase points per tap. (+1 per tap)</div>
               </div>
-              <button
-                onClick={() => upgradeBooster("tap")}
-                disabled={tapLvl >= 20 || displayPoints < getTapUpgradeCost(tapLvl)}
-                className="py-2 px-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 disabled:from-zinc-800 disabled:to-zinc-800 text-black disabled:text-zinc-600 text-[11px] font-black font-mono transition-all active:scale-95"
-              >
-                {tapLvl >= 20 ? "MAX" : `🪙 ${getTapUpgradeCost(tapLvl).toLocaleString()}`}
-              </button>
-            </div>
 
-            {/* 2. Energy Capacity Boost */}
-            <div className="bg-zinc-900/60 border border-white/5 p-3.5 rounded-2xl flex justify-between items-center backdrop-blur-xl">
-              <div>
-                <div className="text-xs font-black text-white flex items-center gap-1.5">🔋 Energy Limit <span className="text-[10px] text-cyan-400 font-mono">Lvl {capLvl}/20</span></div>
-                <div className="text-[10px] text-zinc-500 mt-0.5">Increase energy limit. (+500 capacity)</div>
+              {/* 2. Energy Capacity Boost */}
+              <div className="bg-zinc-900/60 border border-white/5 p-3 rounded-2xl flex justify-between items-center backdrop-blur-xl">
+                <div>
+                  <div className="text-xs font-black text-white flex items-center gap-1.5">🔋 Energy Limit <span className="text-[10px] text-cyan-400 font-mono">Lvl {capLvl}/20</span></div>
+                  <div className="text-[10px] text-zinc-500 mt-0.5">Increase energy limit. (+500)</div>
+                </div>
+                <button
+                  onClick={() => upgradeBooster("cap")}
+                  disabled={capLvl >= 20 || displayPoints < getCapUpgradeCost(capLvl)}
+                  className="py-1.5 px-3 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-600 disabled:from-zinc-800 disabled:to-zinc-800 text-black disabled:text-zinc-600 text-[11px] font-black font-mono transition-all active:scale-95"
+                >
+                  {capLvl >= 20 ? "MAX" : `${getCapUpgradeCost(capLvl).toLocaleString()}`}
+                </button>
               </div>
-              <button
-                onClick={() => upgradeBooster("cap")}
-                disabled={capLvl >= 20 || displayPoints < getCapUpgradeCost(capLvl)}
-                className="py-2 px-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-600 disabled:from-zinc-800 disabled:to-zinc-800 text-black disabled:text-zinc-600 text-[11px] font-black font-mono transition-all active:scale-95"
-              >
-                {capLvl >= 20 ? "MAX" : `🪙 ${getCapUpgradeCost(capLvl).toLocaleString()}`}
-              </button>
-            </div>
 
-            {/* 3. Recharging Speed Boost */}
-            <div className="bg-zinc-900/60 border border-white/5 p-3.5 rounded-2xl flex justify-between items-center backdrop-blur-xl">
-              <div>
-                <div className="text-xs font-black text-white flex items-center gap-1.5">⚡ Recharge Speed <span className="text-[10px] text-emerald-400 font-mono">Lvl {speedLvl}/20</span></div>
-                <div className="text-[10px] text-zinc-500 mt-0.5">Increase energy auto-recovery speed. (+1/s)</div>
+              {/* 3. Recharging Speed Boost */}
+              <div className="bg-zinc-900/60 border border-white/5 p-3 rounded-2xl flex justify-between items-center backdrop-blur-xl">
+                <div>
+                  <div className="text-xs font-black text-white flex items-center gap-1.5">⚡ Recharge Speed <span className="text-[10px] text-emerald-400 font-mono">Lvl {speedLvl}/20</span></div>
+                  <div className="text-[10px] text-zinc-500 mt-0.5">Increase auto-recovery speed. (+1/s)</div>
+                </div>
+                <button
+                  onClick={() => upgradeBooster("speed")}
+                  disabled={speedLvl >= 20 || displayPoints < getSpeedUpgradeCost(speedLvl)}
+                  className="py-1.5 px-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 disabled:from-zinc-800 disabled:to-zinc-800 text-black disabled:text-zinc-600 text-[11px] font-black font-mono transition-all active:scale-95"
+                >
+                  {speedLvl >= 20 ? "MAX" : `${getSpeedUpgradeCost(speedLvl).toLocaleString()}`}
+                </button>
               </div>
-              <button
-                onClick={() => upgradeBooster("speed")}
-                disabled={speedLvl >= 20 || displayPoints < getSpeedUpgradeCost(speedLvl)}
-                className="py-2 px-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 disabled:from-zinc-800 disabled:to-zinc-800 text-black disabled:text-zinc-600 text-[11px] font-black font-mono transition-all active:scale-95"
-              >
-                {speedLvl >= 20 ? "MAX" : `🪙 ${getSpeedUpgradeCost(speedLvl).toLocaleString()}`}
-              </button>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* BOTTOM REALTIME STATUS & LOWER NAV COCKPIT */}
-        <div className="w-full max-w-md mx-auto space-y-4">
+        <div className="w-full flex-shrink-0 space-y-2 mt-auto">
           {activeTab === "earn" && (
-            <div className="px-2 space-y-1.5">
+            <div className="space-y-1">
               <div className="flex justify-between items-center font-mono text-[11px] font-black uppercase tracking-wider">
                 <div className="text-amber-400 flex items-center gap-1">⚡ {energy} / {maxEnergy}</div>
                 <div className="text-zinc-500">+{energyRegenPerSec}/sec</div>
               </div>
-              <div className="w-full h-2.5 bg-zinc-950 rounded-full border border-white/5 overflow-hidden p-[2px]">
+              <div className="w-full h-2 bg-zinc-950 rounded-full border border-white/5 overflow-hidden p-[1px]">
                 <div 
                   className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500 shadow-[0_0_10px_rgba(245,158,11,0.5)] transition-all duration-100"
                   style={{ width: `${(energy / maxEnergy) * 100}%` }}
@@ -296,10 +298,11 @@ export default function HomePage() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-2 border border-white/5 bg-zinc-950/80 backdrop-blur-2xl p-1.5 rounded-2xl shadow-2xl">
+          {/* 🌟 EARN / BOOST TABS (အောက်ခြေမှာ အမြဲတမ်း ငြိမ်နေစေရန် သေသေချာချာ နေရာချထားသည်) */}
+          <div className="grid grid-cols-2 gap-2 border border-white/5 bg-zinc-950/90 backdrop-blur-2xl p-1 rounded-xl shadow-2xl relative z-20">
             <button
               onClick={() => setActiveTab("earn")}
-              className={`py-3 rounded-xl flex flex-col items-center justify-center gap-0.5 font-black uppercase tracking-widest text-[10px] transition-all ${
+              className={`py-2.5 rounded-lg flex flex-col items-center justify-center gap-0.5 font-black uppercase tracking-widest text-[10px] transition-all ${
                 activeTab === "earn" ? "bg-white/10 text-amber-400 border border-white/5" : "text-zinc-500 hover:text-zinc-300"
               }`}
             >
@@ -308,7 +311,7 @@ export default function HomePage() {
             </button>
             <button
               onClick={() => setActiveTab("boost")}
-              className={`py-3 rounded-xl flex flex-col items-center justify-center gap-0.5 font-black uppercase tracking-widest text-[10px] transition-all ${
+              className={`py-2.5 rounded-lg flex flex-col items-center justify-center gap-0.5 font-black uppercase tracking-widest text-[10px] transition-all ${
                 activeTab === "boost" ? "bg-white/10 text-cyan-400 border border-white/5" : "text-zinc-500 hover:text-zinc-300"
               }`}
             >
@@ -331,5 +334,5 @@ export default function HomePage() {
       </div>
     </AppShell>
   );
-        }
-        
+    }
+                
