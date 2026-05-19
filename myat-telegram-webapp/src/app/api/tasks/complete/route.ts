@@ -20,22 +20,42 @@ export async function POST(req: NextRequest) {
 
   if (!taskKey) return NextResponse.json({ error: "Invalid task" }, { status: 400 });
 
-  // 🕹️ GAME CLICKER TAP ENGINE FOR BACKEND
+  // 🕹️ GAME CLICKER TAP ENGINE & BOOST ENGINE
   if (taskKey === "game_clicker") {
     const pointsToAdd = Number(score || 0);
-    if (isNaN(pointsToAdd) || pointsToAdd <= 0) {
+    if (isNaN(pointsToAdd) || pointsToAdd === 0) {
       return NextResponse.json({ error: "Invalid score" }, { status: 400 });
     }
 
     try {
-      // User Table ထဲက ပွိုင့်ကို တိုက်ရိုက် တိုးပေးမည်
+      let updateData: any = {};
+
+      if (pointsToAdd > 0) {
+        // 🪙 ရိုးရိုး Tap နှိပ်လို့ အမှတ်တက်လာရင် - Balance ရော Leaderboard ပါ နှစ်ခုလုံး တိုးပေးမယ်
+        updateData = {
+          points: { increment: pointsToAdd },
+          lifetime_points: { increment: pointsToAdd }
+        };
+      } else {
+        // 🚀 Boost Upgrade လုပ်လို့ အမှတ်လာနှုတ်ရင် (အနှုတ်တန်ဖိုးဖြစ်နေရင်)
+        // points (Balance) ထဲကပဲ နှုတ်ပြီး၊ Leaderboard အတွက် lifetime_points ကို လုံးဝ မထိခိုက်စေရဘူး
+        updateData = {
+          points: { increment: pointsToAdd } // အနှုတ်တန်ဖိုးမို့လို့ decrement အလိုလို ဖြစ်သွားမယ်
+        };
+      }
+
       const updatedUser = await prisma.user.update({
         where: { telegramId: userId },
-        data: { points: { increment: pointsToAdd } },
+        data: updateData,
       });
       
-      // Front-end Context ဆီ သွားညှိရန် User Object အသစ်ကို တန်းပြန်ပေးမည်
-      return NextResponse.json({ ok: true, user: updatedUser });
+      // Frontend Context မှာ Type Error မတက်အောင် လိုက်ညှိပေးခြင်း
+      const formattedUser = {
+        ...updatedUser,
+        lifetime_points: (updatedUser as any).lifetime_points ?? updatedUser.points
+      };
+
+      return NextResponse.json({ ok: true, user: formattedUser });
     } catch (e: any) {
       return NextResponse.json({ error: "Failed to update game points", detail: e?.message }, { status: 500 });
     }
@@ -48,7 +68,6 @@ export async function POST(req: NextRequest) {
   const def = (TASKS as any)[taskKey] as { type: "daily" | "once"; points: number };
   const periodKey = def.type === "daily" ? getDailyPeriodKey12pmMyanmar() : "once";
 
-  // For follow/join we verify via bot API.
   if (taskKey === "follow_channel" || taskKey === "join_group") {
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
     if (!botToken) return NextResponse.json({ error: "Server not configured" }, { status: 500 });
@@ -84,13 +103,17 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // Task Complete လုပ်လို့ အမှတ်ရရင်လည်း - Balance ကော Leaderboard ကော နှစ်ခုစလုံးမှာ ပေါင်းထည့်ပေးမယ်
     await prisma.$transaction(async (tx) => {
       await tx.taskCompletion.create({
         data: { userId, taskKey, periodKey },
       });
       await tx.user.update({
         where: { telegramId: userId },
-        data: { points: { increment: def.points } },
+        data: { 
+          points: { increment: def.points },
+          lifetime_points: { increment: def.points } // Task ဆုကြေးကိုပါ Leaderboard ထဲ ထည့်ပေးခြင်း
+        } as any,
       });
     });
   } catch (e: any) {
@@ -101,4 +124,5 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ ok: true });
-        }
+            }
+          
