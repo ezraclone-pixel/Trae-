@@ -11,7 +11,7 @@ type MeResponse = {
     lastName?: string | null;
     photoUrl?: string | null;
     points: number;
-    lifetime_points: number; // Type အသစ်တိုးခြင်း
+    lifetime_points: number;
     reservedPoints: number;
     availablePoints: number;
     referrerId?: string | null;
@@ -182,9 +182,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setError(null);
       const rawToken = getRawTelegramInitData();
       
+      // 1. Optimistic Update (Frontend အမှတ်ကို ချက်ချင်းတင်ပေးထားမည်)
       setMe((prevMe) => {
         if (!prevMe) return null;
-        // တိုးလာတဲ့ အမှတ်ဆိုရင် lifetime ရော points ရော တိုးပေးပြီး၊ Upgrade (အနှုတ်) ဆိုရင် points လက်ကျန်ငွေပဲ နှုတ်မယ်
         const isUpgrade = pointsEarned < 0;
         return {
           ...prevMe,
@@ -213,17 +213,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (res.ok && updatedData && updatedData.user) {
           setMe((prev: any) => {
             if (!prev) return null;
-            return { ...prev, user: updatedData.user };
+            return { 
+              ...prev, 
+              user: {
+                ...prev.user,
+                ...updatedData.user,
+                // Local က ပေါင်းထားတဲ့အမှတ်နဲ့ API က ကျလာတဲ့အမှတ်ထဲက အများဆုံးကောင်ကိုပဲ ရွေးယူပြီး ဒေတာကျမသွားအောင် ထိန်းထားမည်
+                points: Math.max(prev.user.points, updatedData.user.points || 0)
+              } 
+            };
           });
-        } else {
-          await refresh(); 
         }
       } catch (e) {
         console.error("Failed to sync game points to database:", e);
-        await refresh();
       }
     },
-    [refresh, getRawTelegramInitData]
+    [getRawTelegramInitData]
   );
 
   const createOrder: Ctx["createOrder"] = useCallback(
@@ -279,5 +284,5 @@ export function useApp() {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error("useApp must be used within AppProvider");
   return ctx;
-  }
-  
+                                                  }
+          
