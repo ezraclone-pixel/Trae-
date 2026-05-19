@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-// Next.js ကို Cache မလုပ်ဘဲ အမြဲတမ်း ဒေတာအသစ် ဆွဲခိုင်းခြင်း
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   try {
-    // 🚀 Leaderboard အတွက် အဆင့်မြင့်ဆုံး ပွိုင့်အများဆုံး ၅၀ ကို ဆွဲထုတ်ခြင်း
+    // 🚀 Leaderboard အတွက် အမှတ်မလျော့မယ့် lifetime_points ကို ကြည့်ပြီး အစီအစဉ်ဆွဲခြင်း
     const top = await prisma.user.findMany({
-      orderBy: [{ points: "desc" }, { createdAt: "asc" }],
+      orderBy: [
+        { lifetime_points: "desc" } as any, // SQL Column အသစ်ကို သုံးရန်
+        { createdAt: "asc" }
+      ],
       take: 50,
       select: {
         telegramId: true,
@@ -18,14 +20,15 @@ export async function GET(req: NextRequest) {
         lastName: true,
         photoUrl: true,
         points: true,
-      },
+        lifetime_points: true, // ပြသရန် ဆွဲထုတ်ခြင်း
+      } as any,
     });
 
-    // 💡 Frontend က မျှော်လင့်ထားတဲ့အတိုင်း ဒေတာကို Map လုပ်ပြီး ပို့ပေးခြင်း
-    const formattedTop = top.map((u, idx) => ({
+    const formattedTop = top.map((u: any, idx: number) => ({
       ...u,
       rank: idx + 1,
-      premium: idx < 3, // Top 3 ကို Premium ပေးခြင်း
+      premium: idx < 3, 
+      points: u.lifetime_points ?? u.points, // Leaderboard ပေါ်မှာ အမြဲတမ်း ပုံသေတိုးနေတဲ့ Point ကိုပဲ ပြရန်
       displayName: u.username
         ? `@${u.username}`
         : [u.firstName, u.lastName].filter(Boolean).join(" ") || `User_${u.telegramId.slice(-4)}`,
