@@ -22,9 +22,9 @@ export default function HomePage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // 🕹️ TAPSWAP CORE STATES
-  const currentDbPoints = me?.user?.points || (me as any)?.points || 0;
-  const [displayPoints, setDisplayPoints] = useState<number>(currentDbPoints);
+  // 🕹️ TAPSWAP CORE STATES (အမှတ် ပြန်ပြန်ကျမသွားအောင် ပြင်ဆင်ပြီး)
+  const currentDbPoints = me?.user?.points ?? 0;
+  const [displayPoints, setDisplayPoints] = useState<number>(0);
   const [energy, setEnergy] = useState<number>(500);
   const [activeTab, setActiveTab] = useState<"earn" | "boost">("earn");
 
@@ -35,8 +35,9 @@ export default function HomePage() {
 
   const [tapEffects, setTapEffects] = useState<{ id: number; x: number; y: number }[]>([]);
   const accumulatedTapsRef = useRef<number>(0);
+  const isUpgradingRef = useRef<boolean>(false); // Upgrade လုပ်နေစဉ် အမှတ် ခဏငြိမ်နေစေရန် Guard
 
-  // 🪐 3D TILT EFFECT STATE (နှိပ်သည့်နေရာအလိုက် သဘာဝကျကျ စောင်းစေရန်)
+  // 🪐 3D TILT EFFECT STATE
   const [tiltStyle, setTiltStyle] = useState<React.CSSProperties>({});
 
   // Dynamic Game Stats Calculations
@@ -49,9 +50,12 @@ export default function HomePage() {
   const getCapUpgradeCost = (lvl: number) => lvl === 1 ? 200 : Math.floor(200 * Math.pow(1.5, lvl - 1));
   const getSpeedUpgradeCost = (lvl: number) => lvl === 1 ? 2000 : Math.floor(2000 * Math.pow(1.6, lvl - 1));
 
-  // 🔄 Database Sync Tracker
+  // 🔄 Database Sync Tracker (Flickering ပြဿနာကို ဖြေရှင်းသည့် နေရာ)
   useEffect(() => {
-    setDisplayPoints(currentDbPoints);
+    // အကယ်၍ Upgrade လုပ်နေတုန်း သို့မဟုတ် Tap နှိပ်ထားတဲ့ အမှတ်တွေ ကျန်သေးရင် Database က အမှတ်ဟောင်းကို အတင်းဆွဲမချခိုင်းဘူး
+    if (accumulatedTapsRef.current === 0 && !isUpgradingRef.current) {
+      setDisplayPoints(currentDbPoints);
+    }
     
     if (me?.user) {
       setTapLvl(Number((me.user as any).tapLevel || localStorage.getItem("tw_lvl_tap") || "1"));
@@ -78,7 +82,7 @@ export default function HomePage() {
   // 💾 3-SEC AUTO BACKEND SYNC ENGINE
   useEffect(() => {
     const syncInterval = setInterval(async () => {
-      if (addGamePoints && accumulatedTapsRef.current > 0) {
+      if (addGamePoints && accumulatedTapsRef.current > 0 && !isUpgradingRef.current) {
         const pointsToSend = accumulatedTapsRef.current;
         accumulatedTapsRef.current = 0; 
         try {
@@ -103,14 +107,11 @@ export default function HomePage() {
     let totalAddedPoints = 0;
     const newEffects: { id: number; x: number; y: number }[] = [];
 
-    // 🌟 3D TILT MATHEMATICS (ထိလိုက်တဲ့ Coordinate ပေါ်မူတည်ပြီး Angle တွက်ချက်ပုံ)
     if (touches.length > 0) {
       const lastTouch = touches[touches.length - 1];
-      // ဗဟိုချက် (Center) မှ ကွာဝေးသော အကွာအဝေးကို ရှာခြင်း
       const offsetX = lastTouch.clientX - rect.left - rect.width / 2;
       const offsetY = lastTouch.clientY - rect.top - rect.height / 2;
       
-      // အများဆုံး ၁၅ ဒီဂရီအထိ စောင်းခွင့်ပေးပြီး Perspective ချိန်ညှိခြင်း
       const rotateX = -(offsetY / (rect.height / 2)) * 15;
       const rotateY = (offsetX / (rect.width / 2)) * 15;
 
@@ -119,7 +120,6 @@ export default function HomePage() {
         transition: "transform 0.05s ease-out",
       });
 
-      // ဖုန်းရဲ့ Native Haptic Vibration ကိုပါ စည်းချက်ကျကျ တုန်ခါစေရန် လှမ်းခေါ်ခြင်း
       if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) {
         window.navigator.vibrate(12); 
       }
@@ -138,7 +138,6 @@ export default function HomePage() {
 
     if (totalAddedPoints === 0) return;
 
-    // TypeScript Build အဆင်ပြေစေရန် 'prev' ကို Type တိကျစွာ သတ်မှတ်
     setDisplayPoints((prev: number) => prev + totalAddedPoints);
     setEnergy(currentEnergy);
     localStorage.setItem("tw_energy", String(currentEnergy));
@@ -153,7 +152,6 @@ export default function HomePage() {
     });
   };
 
-  // 🌟 လက်ပြန်လွှတ်လိုက်လျှင် Spring Physics အတိုင်း မူလပုံစံသို့ အိအိလေး ပြန်ကန်ထွက်လာစေရန်
   const handleTouchEnd = () => {
     setTiltStyle({
       transform: "perspective(1000px) rotateX(0deg) rotateY(0deg) scale(1)",
@@ -161,21 +159,34 @@ export default function HomePage() {
     });
   };
 
-  // 🚀 BOOST UPGRADE HANDLERS
+  // 🚀 BOOST UPGRADE HANDLERS (Flicker မဖြစ်အောင် အစအဆုံး Logic ပြင်ဆင်ပြီး)
   const upgradeBooster = async (type: "tap" | "cap" | "speed") => {
-    if (!addGamePoints) return;
+    if (!addGamePoints || isUpgradingRef.current) return;
+
+    // အရင်စုထားတဲ့ Tap အမှတ်တွေရှိရင် Backend ဆီ အရင်ပို့ပြီး ရှင်းထုတ်ပစ်မယ်
+    if (accumulatedTapsRef.current > 0) {
+      const tempTaps = accumulatedTapsRef.current;
+      accumulatedTapsRef.current = 0;
+      await addGamePoints(tempTaps).catch(() => { accumulatedTapsRef.current = tempTaps; });
+    }
 
     if (type === "tap" && tapLvl < 20) {
       const cost = getTapUpgradeCost(tapLvl);
       if (displayPoints < cost) return alert("❌ Points မလုံလောက်ပါ!");
       
       try {
+        isUpgradingRef.current = true;
         setDisplayPoints((prev: number) => prev - cost);
         await addGamePoints(-cost); 
         const nextLvl = tapLvl + 1;
         setTapLvl(nextLvl);
         localStorage.setItem("tw_lvl_tap", String(nextLvl));
-      } catch (err) { alert("Upgrade မအောင်မြင်ပါ"); }
+      } catch (err) { 
+        alert("Upgrade မအောင်မြင်ပါ"); 
+        setDisplayPoints((prev: number) => prev + cost);
+      } finally {
+        isUpgradingRef.current = false;
+      }
     }
     
     if (type === "cap" && capLvl < 20) {
@@ -183,12 +194,18 @@ export default function HomePage() {
       if (displayPoints < cost) return alert("❌ Points မလုံလောက်ပါ!");
       
       try {
+        isUpgradingRef.current = true;
         setDisplayPoints((prev: number) => prev - cost);
         await addGamePoints(-cost);
         const nextLvl = capLvl + 1;
         setCapLvl(nextLvl);
         localStorage.setItem("tw_lvl_cap", String(nextLvl));
-      } catch (err) { alert("Upgrade မအောင်မြင်ပါ"); }
+      } catch (err) { 
+        alert("Upgrade မအောင်မြင်ပါ"); 
+        setDisplayPoints((prev: number) => prev + cost);
+      } finally {
+        isUpgradingRef.current = false;
+      }
     }
     
     if (type === "speed" && speedLvl < 20) {
@@ -196,12 +213,18 @@ export default function HomePage() {
       if (displayPoints < cost) return alert("❌ Points မလုံလောက်ပါ!");
       
       try {
+        isUpgradingRef.current = true;
         setDisplayPoints((prev: number) => prev - cost);
         await addGamePoints(-cost);
         const nextLvl = speedLvl + 1;
         setSpeedLvl(nextLvl);
         localStorage.setItem("tw_lvl_speed", String(nextLvl));
-      } catch (err) { alert("Upgrade မအောင်မြင်ပါ"); }
+      } catch (err) { 
+        alert("Upgrade မအောင်မြင်ပါ"); 
+        setDisplayPoints((prev: number) => prev + cost);
+      } finally {
+        isUpgradingRef.current = false;
+      }
     }
   };
 
@@ -220,11 +243,9 @@ export default function HomePage() {
         {/* TABS CONTAINER */}
         <div className="flex-1 flex flex-col justify-center items-center w-full">
           {activeTab === "earn" ? (
-            /* =================== 🪙 EARN MAIN SCREEN =================== */
             <div className="flex flex-col items-center justify-center relative w-full select-none" style={{ perspective: "1000px" }}>
               <div className="absolute w-64 h-64 bg-amber-500/10 blur-[90px] rounded-full pointer-events-none" />
 
-              {/* 🔥 TAP COIN (3D TILT STYLE ဖြင့် ချိတ်ဆက်ထားသည်) */}
               <div 
                 onTouchStart={handleTouchStart}
                 onTouchEnd={handleTouchEnd}
@@ -239,7 +260,6 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                {/* Burst Floating Text Effects */}
                 {tapEffects.map((effect) => (
                   <div
                     key={effect.id}
@@ -252,7 +272,6 @@ export default function HomePage() {
               </div>
             </div>
           ) : (
-            /* =================== 🚀 BOOST SCREEN =================== */
             <div className="w-full space-y-2.5 py-2 overflow-y-auto max-h-[50vh] px-1">
               <div className="flex justify-between items-center mb-1">
                 <h2 className="text-xs font-black tracking-widest text-zinc-500 uppercase">🚀 Upgrades & Boosters</h2>
@@ -369,5 +388,5 @@ export default function HomePage() {
       </div>
     </AppShell>
   );
-    }
+                                                                                             }
     
