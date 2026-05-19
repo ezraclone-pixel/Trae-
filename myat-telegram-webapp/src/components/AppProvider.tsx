@@ -11,11 +11,11 @@ type MeResponse = {
     lastName?: string | null;
     photoUrl?: string | null;
     points: number;
+    lifetime_points: number; // Type အသစ်တိုးခြင်း
     reservedPoints: number;
     availablePoints: number;
     referrerId?: string | null;
     referralCount: number;
-    // Database schema ထဲမှာ Level တွေ သိမ်းထားရင် သုံးရန်
     tapLevel?: number;
     capLevel?: number;
     speedLevel?: number;
@@ -132,13 +132,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   }, [loginIfNeeded, refresh]);
 
-  // ⚡ 🌟 BACKGROUND ENERGY REGENERATION ENGINE 
-  // (ဘယ် Page ရောက်ရောက်၊ App ဖွင့်ထားသရွေ့ ၁ စက္ကန့်တစ်ခါ LocalStorage ထဲမှာ ⚡ အားသွင်းပေးမည့်နေရာ)
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     const interval = setInterval(() => {
-      // LocalStorage ထဲက Level တွေကို ထောက်ပြီး လက်ရှိ Speed နှင့် Max Energy ကို တွက်ချက်မည်
       const savedCapLvl = localStorage.getItem("tw_lvl_cap") || "1";
       const savedSpeedLvl = localStorage.getItem("tw_lvl_speed") || "1";
 
@@ -152,7 +149,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         currentEnergy += energyRegenPerSec;
         if (currentEnergy > maxEnergy) currentEnergy = maxEnergy;
         
-        // အားတိုးသွားတာကို LocalStorage ထဲ သိမ်းမည်
         localStorage.setItem("tw_energy", String(currentEnergy));
       }
     }, 1000);
@@ -181,7 +177,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [refresh, getRawTelegramInitData],
   );
 
-  // 🕹️ [CONNECTED TO TASKS/COMPLETE] - Backend API
   const addGamePoints = useCallback(
     async (pointsEarned: number) => {
       setError(null);
@@ -189,11 +184,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       
       setMe((prevMe) => {
         if (!prevMe) return null;
+        // တိုးလာတဲ့ အမှတ်ဆိုရင် lifetime ရော points ရော တိုးပေးပြီး၊ Upgrade (အနှုတ်) ဆိုရင် points လက်ကျန်ငွေပဲ နှုတ်မယ်
+        const isUpgrade = pointsEarned < 0;
         return {
           ...prevMe,
           user: {
             ...prevMe.user,
             points: (prevMe.user?.points || 0) + pointsEarned,
+            lifetime_points: isUpgrade 
+              ? (prevMe.user?.lifetime_points || prevMe.user?.points || 0)
+              : (prevMe.user?.lifetime_points || prevMe.user?.points || 0) + pointsEarned
           },
         };
       });
@@ -279,5 +279,5 @@ export function useApp() {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error("useApp must be used within AppProvider");
   return ctx;
-                                             }
-                              
+  }
+  
